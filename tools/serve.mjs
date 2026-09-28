@@ -7,7 +7,8 @@ import { dirname, join, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const HERE = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const ESTATE = process.env.ESTATE || 'C:/Users/USER/Desktop/github';
-const ROOTS = { 'hs2-genetics': HERE, 'hs2-test3': join(ESTATE, 'hs2-test3'), 'hs2-final': join(ESTATE, 'hs2-final') };
+// T3= / FINAL= point at other checkouts of the sims (e.g. an edited clone, to preview a link card before it ships)
+const ROOTS = { 'hs2-genetics': HERE, 'hs2-test3': process.env.T3 || join(ESTATE, 'hs2-test3'), 'hs2-final': process.env.FINAL || join(ESTATE, 'hs2-final') };
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css', '.json': 'application/json',
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
 const port = +process.argv[2] || 8765;
@@ -15,7 +16,7 @@ createServer(async (req, res) => {
   const url = decodeURIComponent(new URL(req.url, 'http://x').pathname);
   if (url === '/') { res.writeHead(302, { location: '/hs2-genetics/' }); return res.end(); }
   const [, repo, ...rest] = url.split('/');
-  const root = ROOTS[repo];
+  const root = ROOTS[repo] && resolve(ROOTS[repo]);   // resolve() so C:/x and C:\x compare the same
   if (!root) { res.writeHead(404); return res.end('not found'); }
   let file = resolve(root, rest.join('/'));
   if (!file.startsWith(root)) { res.writeHead(403); return res.end(); }

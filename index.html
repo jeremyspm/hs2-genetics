@@ -1028,8 +1028,17 @@ function homeView() {
 function route() { return decodeURIComponent(location.hash.slice(1)); }
 function nav(r) { history.pushState({ r }, '', r ? '#' + r : location.pathname + location.search); render(); window.scrollTo(0, 0); }
 window.addEventListener('popstate', () => { render(); window.scrollTo(0, 0); });
+/* a drill by name: "ped-mode", "mixedPun", "story:XLR" (type, then an optional mode) */
+function goDrill(spec) {
+  const [ty, md] = spec.split(':');
+  if (!(GEN.PED_TYPES[ty] || GEN.PUN_TYPES[ty] || GEN.KAR_TYPES[ty] || /^mixed/.test(ty))) return false;
+  startSit(ty === 'mixed' ? 'Mixed pedigree round' : ty === 'mixedPun' ? 'Mixed Punnett round' : ty === 'mixedKar' ? 'Mixed karyotypes' : TYPE_LABEL[ty], () => makeQ(ty, md ? { mode: md } : {}), ty === 'story' ? 5 : 10);
+  return true;
+}
 function render() {
   const r = route(), [a, b] = r.split('/');
+  // deep links from the Paper Sims (#go/story:XLR opens the case 14 story); Back then lands on home, not on the link again
+  if (a === 'go') { history.replaceState(null, '', location.pathname); if (b && goDrill(b)) return; }
   $('#footbar').classList.remove('on');
   const main = $('#view');
   main.classList.toggle('wide', a === 'her' && !!b);
@@ -1052,7 +1061,7 @@ document.addEventListener('click', e => {
   const go = t.closest('[data-go]'); if (go) { if (go.dataset.go === 'decide') startDecide(); else startSet(); return; }
   if (t.closest('#undoLast')) { const l = logGet(); l.pop(); SV('log', l); render(); return; }
   if (t.closest('#resetAll')) { if (confirm('Reset all progress in this browser? Your slips, streaks and history go.')) { SV('log', []); render(); } return; }
-  const d = t.closest('[data-drill]'); if (d) { const [ty, md] = d.dataset.drill.split(':'); startSit(ty === 'mixed' ? 'Mixed pedigree round' : ty === 'mixedPun' ? 'Mixed Punnett round' : ty === 'mixedKar' ? 'Mixed karyotypes' : TYPE_LABEL[ty], () => makeQ(ty, md ? { mode: md } : {}), ty === 'story' ? 5 : 10); return; }
+  const d = t.closest('[data-drill]'); if (d) { goDrill(d.dataset.drill); return; }
   const ah = t.closest('[data-askher]'); if (ah) { startHer(ah.dataset.askher); return; }
   if (t.id === 'drawFirst') { SV('drawFirst', t.checked); return; }
   if (route() !== 'sit' || !SIT) return;
