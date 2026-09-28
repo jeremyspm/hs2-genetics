@@ -226,6 +226,23 @@ figure.fig figcaption{font-size:.76rem;color:var(--muted-fg);margin:5px 2px 0}
 .sliprow>span:first-child{flex:1 1 auto;min-width:0}
 .sliprow .num{text-align:right;flex:0 0 auto;max-width:48%}
 .sliprow .num.ok{color:var(--ok);font-weight:700}
+.karyobox svg{display:block;width:100%;height:auto;margin:0 auto}
+.askher{margin:0 0 12px}
+.toggle{display:flex;gap:10px;align-items:center;font-size:.9rem;margin:4px 4px 10px;cursor:pointer;min-height:44px}
+.toggle input{width:20px;height:20px;accent-color:var(--primary)}
+.cgrp{margin:12px 0}
+.cq{font-weight:650;margin:10px 0 6px;line-height:1.45}
+.cchips{display:flex;flex-direction:column;gap:6px}
+.cchip{font:inherit;font-size:.9rem;text-align:left;color:var(--fg);background:var(--muted);border:1px solid var(--border);border-radius:10px;padding:9px 11px;cursor:pointer;min-height:44px;line-height:1.4}
+.cchip.on{border-color:var(--primary);background:var(--accent);box-shadow:inset 0 0 0 1px var(--primary)}
+.cchip.k{border-color:var(--ok);box-shadow:inset 0 0 0 1px var(--ok)} .cchip.x{border-color:var(--danger);box-shadow:inset 0 0 0 1px var(--danger)}
+.mpart{font-size:.9rem;line-height:1.5;margin:6px 0}
+.storyt{font-size:1rem;line-height:1.6;background:var(--muted);border-radius:10px;padding:10px 12px;margin:0 0 10px;border-left:3px solid var(--tool)}
+.c4{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+@media(min-width:700px){ .c4{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} }
+.c4b{font:inherit;color:var(--fg);text-align:left;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:8px;cursor:pointer}
+.c4b.k{border:2px solid var(--ok)} .c4b.x{border:2px solid var(--danger)}
+.c4why{display:block;font-size:.84rem;margin-top:6px;line-height:1.45}
 .sliprow{display:flex;justify-content:space-between;gap:8px;font-size:.86rem;padding:5px 0;border-bottom:1px dashed var(--border)}
 </style>
 </head>
@@ -331,6 +348,7 @@ function herView(id) {
   }).join('');
   const title = g.part === 'ab' ? 'Pedigree A and Pedigree B' : g.part === 'rules' ? 'Her dominant and recessive rules figure' : s0.t;
   return `<div class="shead"><button class="btn ghost" data-nav="her">‹ Her charts</button><h2>${esc(title)}</h2></div>
+    <button class="btn primary wide askher" data-askher="${esc(id)}">🎲 Ask me every kind of question about this chart</button>
     <div class="pair"><div>${herFigs || '<p class="meta">Her figure is a slide in the final exam sim.</p>'}</div><div class="${specs.length > 1 ? 'duo' : ''}">${redraws}</div></div>
     <div class="card">${qHTML || '<p class="meta">Her bank asks no question of this chart on its own (it is one half of a pair).</p>'}</div>`;
 }
@@ -365,8 +383,7 @@ const PED_ROWS = [
   ['ped-ab', '🅰️', 'A or B', 'Two charts: which one is dominant (or recessive)?'],
   ['ped-pheno', '🙂', 'Phenotype of a carrier', 'What you SEE is normal'],
   ['ped-bb', '🎨', 'Which coloured shape is the bb?', 'Her revision deck, slides 59 and 79'],
-  ['ped-mt', '🧫', 'Mitochondrial', 'From a chart: who passes mtDNA on?'],
-  ['ped-write', '✍️', 'Write it: her 4-part SAQ', 'Mode, how you can tell, the top parents, the chance; then mark yourself']
+  ['ped-mt', '🧫', 'Mitochondrial', 'From a chart: who passes mtDNA on?']
 ];
 const PUN_ROWS = [
   ['pun-build', '▦', 'Build the square', 'Tap the gametes onto the top and side, then fill every box'],
@@ -408,8 +425,8 @@ function makeQ(type, o) {
   o = o || {};
   const R = GEN.rng((Math.random() * 2 ** 31) | 0);
   for (let t = 0; t < 8; t++) {
-    const ty = type === 'mixed' ? R.weighted(MIXED) : type === 'mixedPun' ? R.pick(Object.keys(GEN.PUN_TYPES)) : type;
-    const T = GEN.PED_TYPES[ty] || GEN.PUN_TYPES[ty];
+    const ty = type === 'mixed' ? R.weighted(MIXED) : type === 'mixedPun' ? R.pick(Object.keys(GEN.PUN_TYPES)) : type === 'mixedKar' ? R.pick(Object.keys(GEN.KAR_TYPES)) : type;
+    const T = GEN.PED_TYPES[ty] || GEN.PUN_TYPES[ty] || GEN.KAR_TYPES[ty];
     const mode = o.mode || R.pick(T.modes);
     const premise = ty === 'ped-geno' ? (o.premise !== undefined ? o.premise : R.weighted([[null, 5], ['mode', 3], ['shade', 2]])) : null;
     const q = GEN.make(ty, R, { mode, premise });
@@ -428,6 +445,8 @@ function addItem() {
   const due = SIT.pending.findIndex(p => p.at <= SIT.items.length);
   let q, again = false;
   if (due >= 0) { q = SIT.pending.splice(due, 1)[0].q; again = true; } else { q = SIT.next(SIT.fresh); SIT.fresh++; }
+  // the fresh ones ran out before a missed one came due: bring it back now rather than dropping it
+  if (!q && SIT.pending.length) { q = SIT.pending.shift().q; again = true; }
   if (!q) return false;
   SIT.items.push({ q, again, st: { pick: null, done: false, taps: [], blanks: q.blanks ? q.blanks.map(() => null) : null, open: null, marks: {}, focus: null,
     top: [null, null], side: [null, null], cells: [[null, null], [null, null]], chip: null } });
@@ -436,7 +455,7 @@ function addItem() {
 const cur = () => SIT && SIT.items[SIT.i];
 
 /* the chart(s) for an item, with glow / taps / marks as the state says */
-function tapMode(it) { const { q, st } = it; return (q.type === 'ped-all' && !st.done) || (q.type === 'ped-mode' && st.ev === 'on'); }
+function tapMode(it) { const { q, st } = it; return (q.type === 'ped-all' && !st.done) || (q.type === 'ped-mode' && st.ev === 'on') || (q.type === 'story' && st.step === 2 && !st.tapDone); }
 function chartHTML(it) {
   const { q, st } = it, tap = tapMode(it);
   if (q.charts) {
@@ -451,7 +470,10 @@ function chartHTML(it) {
   } else if (q.type === 'ped-mode' && st.ev) {
     o.sel = st.taps;
     if (st.ev === 'checked') o.glow = st.evGlow;
-  } else if (q.type === 'ped-write') { if (st.rev) o.glow = q.glowTop; }
+  } else if (q.type === 'story') {
+    o.sel = st.step === 2 && !st.tapDone ? st.taps : [];
+    if (st.tapDone) { o.glow = q.tapKey; o.good = st.taps.filter(x => q.tapKey.includes(x)); o.bad = st.taps.filter(x => !q.tapKey.includes(x)); }
+  } else if (q.type === 'ped-write' || q.type === 'ped-chips') { if (st.rev || (q.type === 'ped-chips' && st.done && !hideFb())) o.glow = q.glowTop; }
   else if (st.done && !hideFb()) o.glow = q.fb.glow;
   let cap = '';
   if (q.chart.shadingMeans === 'dominant-phenotype') cap = 'Shaded = the dominant phenotype';
@@ -461,7 +483,9 @@ function chartHTML(it) {
 /* what sits in the left column: a chart, a finished square to read, or squares I-IV; nothing for a word problem */
 function figHTML(it) {
   const { q } = it;
-  if (q.chart || q.charts) return chartHTML(it);
+  if (q.type === 'story' && (it.st.step === 1 || it.st.step === 'draw' || it.st.step === 'drawCheck' || !it.st.step)) return '';
+  if (q.karyo) return `<div class="chartbox karyobox">${GEN.karyoSVG(q.karyo.v, q.karyo.sex, { mark: it.st.done && !hideFb() ? q.karyo.mark : null })}</div>`;
+  if (q.chart || q.charts) return chartHTML(it) + (q.herId ? herFigNote(q.herId) : '');
   if (q.showSquare) return `<div class="card sqcard">${squareHTML(q.square, true)}</div>`;
   if (q.squares) return `<div class="card sqcard spot">${q.squares.map((s, i) => `<div><b>Square ${['I', 'II', 'III', 'IV'][i]}</b>${sqTable(s.top, s.side, s.cells)}</div>`).join('')}</div>`;
   return '';
@@ -483,8 +507,9 @@ function buildHTML(it) {
 }
 const sameSet = (a, b) => a.slice().sort().join() === b.slice().sort().join();
 function bOK(q, st) { const t = sameSet(st.top, q.P.top), s = sameSet(st.side, q.P.side); return { t, s, gam: t && s }; }
+const herFigNote = id => { const s = HER.find(x => x.id === id); const f = s.imgs[0] || (s.also || [])[0]; return f ? `<details class="how" style="margin-top:6px"><summary>Her original figure</summary><div class="imgbox"><img src="${esc(herImg(f))}" alt="Her figure" loading="lazy"></div></details>` : ''; };
 function stemHTML(q) {
-  if (q.type === 'ped-cloze') return '';
+  if (q.type === 'ped-cloze' || q.type === 'story') return '';
   return `<div class="stem">${esc(q.stem)}</div>`;
 }
 function optsHTML(it) {
@@ -526,12 +551,14 @@ function allHTML(it) {
 function words(s) { return String(s).split(/\s+/).filter(Boolean).length; }
 /* feedback (§5.10): right or wrong, the slip and its fix, the witnesses, her rule, all under ~80 words */
 function fbHTML(it) {
-  const { q, st } = it;
+  let { q } = it; const { st } = it;   // q may be swapped for a copy with this answer's own lines
   if (!st.done) return '';
   if (hideFb()) return '<div class="meta saved">✓ Answer saved. Feedback comes at the end.</div>';
   if (q.type === 'ped-write') return '';
   const S = GEN.SLIPS;
+  if (st.evLines) q = Object.assign({}, q, { fb: Object.assign({}, q.fb, { evidence: st.evLines }) });
   const keyText = q.opts ? q.opts[q.key].t : null;
+  if (q.fb.her) q = Object.assign({}, q, { fb: Object.assign({}, q.fb, { note: 'Her own answer: ' + q.fb.her.slice(0, 3).join(' ') }) });
   const parts = [];
   parts.push(st.ok || !st.tagged ? '' : st.slip && S[st.slip] ? `<p class="slip"><b>${st.slip} · ${esc(S[st.slip].name)}.</b> ${esc(S[st.slip].fix)}</p>` : '');
   const ev = (q.fb.evidence || []).map(t => `<p>${esc(t)}</p>`);
@@ -541,7 +568,7 @@ function fbHTML(it) {
   for (const x of order) { const w = words(x.replace(/<[^>]+>/g, '')); if (parts.length < 3 || w <= budget) { parts.push(x); budget -= w; } }
   const acts = [`<button class="btn ghost" id="copyQ">📋 Copy for Claude</button>`];
   if (q.type === 'ped-mode' && !st.ev) acts.unshift(`<button class="btn" id="evStart">👆 Tap the evidence</button>`);
-  if (q.square && !st.sq) acts.unshift(`<button class="btn" id="sqShow">▦ Show the square</button>`);
+  if (q.square && !st.sq && q.type !== 'ped-chips') acts.unshift(`<button class="btn" id="sqShow">▦ Show the square</button>`);
   const verdict = st.ok ? '✓ Right' : keyText ? `✗ The answer is ${keyText}` : '✗ Not quite';
   return `<div class="fb ${st.ok ? 'right' : 'wrong'}"><div class="verdict">${esc(verdict)}</div>${parts.join('')}${evHTML(it)}${st.sq ? squareHTML(q.square) : ''}<div class="fbacts">${acts.join('')}</div></div>`;
 }
@@ -581,6 +608,8 @@ function sitView() {
   else if (q.type === 'ped-all') body = stemHTML(q) + allHTML(it);
   else if (q.type === 'pun-build') body += buildHTML(it);
   else if (q.type === 'ped-write') body += writeHTML(it);
+  else if (q.type === 'ped-chips') body += chipsHTML(it);
+  else if (q.type === 'story') body = storyHTML(it);
   if (it.again && !hideFb()) body = '<div class="meta why">↻ Back again: you missed this one 3 questions ago.</div>' + body;
   else if (q.why && !it.again) body = `<div class="meta why">Why this one: ${esc(q.why)}</div>` + body;
   body += fbHTML(it);
@@ -640,6 +669,14 @@ function copyText(it) {
     lines.push('Question: ' + q.stem.replace(/\[(\d)\]/g, (m, i) => '[' + q.blanks[i].opts.map(o => o.t).join(' / ') + ']'));
     lines.push('My answers: ' + st.blanks.map((v, i) => v == null ? '(blank)' : q.blanks[i].opts[v].t).join(' | '));
     lines.push('Key: ' + q.blanks.map(b => b.opts[b.key].t).join(' | '));
+  } else if (q.type === 'story') {
+    lines.push('Story: ' + q.story);
+    lines.push('Carriers the story forces: ' + q.tapKey.map(id => GEN.nameOf(q.chart, id)).join(', '));
+    q.qs.forEach(x => lines.push('Q: ' + x.stem + '  Key: ' + x.opts[x.key].t));
+  } else if (q.type === 'ped-chips') {
+    lines.push('Question: her four-part SAQ. ' + q.groups.map(g => g.label + ' Right: ' + g.opts.filter(o => o.right).map(o => o.t).join(' / ')).join(' | '));
+  } else if (q.karyo) {
+    lines.push('Karyotype: ' + GEN.KARYO[q.karyo.v].name, 'Question: ' + q.stem, 'Options: ' + q.opts.map((o, i) => (i + 1) + ') ' + o.t).join('  '), 'My answer: ' + (st.pick != null ? q.opts[st.pick].t : '(none)'), 'Key: ' + q.opts[q.key].t);
   } else if (q.type === 'ped-write') {
     lines.push('Question: ' + q.stem + ' ' + q.prompts.map((p, i) => (i + 1) + '. ' + p).join(' '));
     lines.push('Model answer: ' + q.parts.join(' '));
@@ -720,13 +757,13 @@ const SKILLS = [
   { id: 'abo', t: 'ABO blood groups', crit: 'Genetics 5' },
   { id: 'patterns', t: 'Incomplete dominance, codominance, polygenic', crit: 'Genetics 5' },
   { id: 'mito', t: 'Mitochondrial inheritance', crit: 'Genetics 5' },
-  { id: 'karyotype', t: 'Karyotypes', crit: 'Genetics 2', later: true }
+  { id: 'karyotype', t: 'Karyotypes and chromosome-number disorders', crit: 'Genetics 2' }
 ];
 const SKILL_SRC = {
   pedigree: [['ped-mode', { mode: 'AD' }], ['ped-mode', { mode: 'AR' }], ['ped-geno', {}], ['ped-next', {}], ['ped-cloze', {}], ['ped-read', {}], ['ped-all', {}], ['ped-geno2', {}], ['ped-ab', {}], ['ped-bb', {}]],
   crosses: [['pun-fwd'], ['pun-back'], ['pun-test'], ['pun-read'], ['pun-spot'], ['pun-indep'], ['pun-build']],
   sexlinked: [['ped-mode', { mode: 'XLR' }], ['ped-geno', { mode: 'XLR' }], ['ped-next', { mode: 'XLR' }], ['pun-xl'], ['ped-pheno', { mode: 'XLR' }], ['ped-mode', { mode: 'YL' }]],
-  abo: [['pun-abo']], patterns: [['pun-pat']], mito: [['ped-mt']]
+  abo: [['pun-abo']], patterns: [['pun-pat']], mito: [['ped-mt']], karyotype: [['kar-dis'], ['kar-sex'], ['kar-count'], ['kar-fact']]
 };
 const SLIP_SRC = {
   W1: [['ped-geno', { mode: 'AR', premise: 'mode' }], ['ped-geno2'], ['ped-next', { mode: 'AR' }], ['pun-fwd'], ['pun-xl'], ['pun-abo']],
@@ -796,7 +833,7 @@ function startDecide() {
 const SET_SPECS = [['ped-mode', {}], ['ped-mode', {}], ['ped-geno', {}], ['ped-next', {}], ['ped-cloze', {}], ['ped-read', {}], ['ped-geno2'], ['pun-fwd'], ['pun-back'], ['pun-xl'], ['pun-abo'], ['pun-pat']];
 function startSet() {
   const R = GEN.rng((Math.random() * 2 ** 31) | 0);
-  const plan = R.shuffle(SET_SPECS).slice(0, 11).concat([['ped-write', {}]]);
+  const plan = R.shuffle(SET_SPECS).slice(0, 10).concat([[R.pick(['kar-dis', 'kar-sex', 'kar-count'])], ['ped-write', {}]]);
   startSit('Test 3 genetics set', k => plan[k] ? fromSpec(plan[k]) : null, 12, { test: true, deadline: Date.now() + 12 * 105e3 });
 }
 setInterval(() => {
@@ -820,6 +857,134 @@ function writeHTML(it) {
   if (!st.done) h += `<button class="btn primary wide" id="markDone">Done marking</button>`;
   else h += `<p class="meta">${st.ticks.filter(Boolean).length} of 4 parts. Her marking gives half a mark per fact; "How can you tell?" carries marks of its own.</p>`;
   return h;
+}
+
+/* ── karyotypes (§5.8) ──────────────────────────────────────────────────────────────── */
+const KAR_ROWS = [
+  ['kar-dis', '🧫', 'What disorder?', "Down's, Edwards, Trisomy 13, Turner's, Klinefelter's, or normal"],
+  ['kar-sex', '⚧️', 'Male or female?', 'Her option: "Male, since he has a Y chromosome"'],
+  ['kar-count', '🔢', 'How many chromosomes?', '45, 46 or 47'],
+  ['kar-fact', '📘', 'Karyotype facts', 'Her one-liners: homologous pairs, aneuploidy, non-disjunction']
+];
+KAR_ROWS.forEach(r => { TYPE_LABEL[r[0]] = r[2]; });
+Object.assign(TYPE_LABEL, { 'ped-chips': 'Write it with phrases', story: 'From a story' });
+function rowsFor(rows, log) {
+  const stat = ty => { const xs = log.filter(e => e.ty === ty); return xs.length ? `${xs.filter(e => e.ok).length}/${xs.length} right` : 'not tried yet'; };
+  return rows.map(([ty, ic, t, sub]) => `<button class="lrow" data-drill="${ty}"><span class="lic">${ic}</span><span class="ltx"><b>${esc(t)}</b><small>${esc(sub)} · ${stat(ty)}</small></span><span class="lch">›</span></button>`).join('');
+}
+function karList() {
+  return `<div class="shead"><button class="btn ghost" data-nav="">‹ Home</button><h2>🧫 Karyotypes</h2></div>
+    <div class="card"><p class="lead">The other chart on Test 3. A karyogram is drawn for you: count the pairs, find the odd one out, read the sex chromosomes.</p>
+    <details class="how"><summary>How this works</summary><p>Each karyogram is drawn from data: 22 pairs of autosomes sized by their real relative lengths, plus the sex pair, in one of her seven shapes: normal male, normal female, trisomy 21, 18 or 13, 45,X or 47,XXY. After you answer, the pair that gives it away is ringed. Her own written answer on karyotypes shows word for word with the fact questions it covers.</p></details></div>
+    <button class="lrow" data-drill="mixedKar"><span class="lic">🔀</span><span class="ltx"><b>Mixed: all of them</b><small>A round of karyotypes</small></span><span class="lch">›</span></button>${rowsFor(KAR_ROWS, logGet())}`;
+}
+
+/* ── write it · from a story (§5.6, §5.7) ─────────────────────────────────────────────── */
+const drawFirst = () => !!LS('drawFirst');
+function writeList() {
+  const log = logGet();
+  return `<div class="shead"><button class="btn ghost" data-nav="">‹ Home</button><h2>✍️ Write it · from a story</h2></div>
+    <div class="card"><p class="lead">30% of Test 3 is written. Her marked pedigree SAQ asks four things: the mode, how you can tell, the genotypes of the parents at the top, and the chance of another affected child.</p>
+    <details class="how"><summary>How this works</summary>
+    <p><b>Build it from phrases</b>: each of her four questions is answered by tapping her-worded phrases; the wrong ones are the slips. <b>Write it on paper</b>: write all four parts, then reveal this tool's answer for the chart and her own model answer word for word, and tick what you got.</p>
+    <p><b>From a story</b> is the final exam's shape (cases 14 and 15): a family told in words. Pick the chart that matches, tap everyone who must be a carrier, then answer the pass-it-on questions. Turn on <i>draw it on paper first</i> to draw the chart yourself before seeing it.</p></details></div>
+    <div class="lsec">Her four-part pedigree SAQ</div>
+    ${rowsFor([['ped-chips', '🧩', 'Build it from phrases', 'Tap her-worded phrases for each part'], ['ped-write', '✍️', 'Write it on paper, then mark yourself', "The tool's answer and hers, word for word"]], log)}
+    <div class="lsec">From a story: the final exam, cases 14 and 15</div>
+    ${rowsFor([['story:XLR', '👓', 'Colour blindness in a family (case 14)', "Simon's shape: a grandad, an aunt, a hidden carrier"], ['story:AR', '🫁', 'A whānau with cystic fibrosis (case 15)', 'Who must be a carrier; what would the sisters need?'], ['story:AD', '🧠', "A whānau with Huntington's (case 15)", 'Who is Hh; the cousins passing it on']], log)}
+    <label class="toggle"><input type="checkbox" id="drawFirst"${drawFirst() ? ' checked' : ''}> Draw it on paper first, then check it against the chart</label>
+    <div class="lsec">The Punnett SAQ</div>
+    <a class="lrow" href="../hs2-test3/#saq"><span class="lic">↗</span><span class="ltx"><b>Her Punnett SAQ is in the Test 3 SAQ Trainer</b><small>The 4-mark Punnett square question, with her model answers</small></span><span class="lch">›</span></a>`;
+}
+/* the phrase-chip write-it */
+function chipsHTML(it) {
+  const { q, st } = it; st.pk = st.pk || {};
+  const show = st.done && !hideFb();
+  let h = q.groups.map(g => {
+    const picked = j => g.multi ? (st.pk[g.id] || []).includes(j) : st.pk[g.id] === j;
+    return `<div class="cgrp"><div class="cq">${esc(g.label)}${g.multi ? ' <span class="meta">(tap every one that is true)</span>' : ''}</div>
+      <div class="cchips">${g.opts.map((o, j) => { let c = 'cchip' + (picked(j) ? ' on' : ''); if (show) { if (o.right) c += ' k'; else if (picked(j)) c += ' x'; }
+        return `<button class="${c}" data-cg="${g.id}" data-cj="${j}"${st.done ? ' disabled' : ''}>${esc(o.t)}</button>`; }).join('')}</div></div>`;
+  }).join('');
+  const ready = q.groups.every(g => g.multi ? (st.pk[g.id] || []).length : st.pk[g.id] != null);
+  if (!st.done) return h + `<button class="btn primary wide" id="ckChips"${ready ? '' : ' disabled'}>Check</button>`;
+  if (show) h += modelHTML(q);
+  return h;
+}
+function modelHTML(q) {
+  return `<div class="wmodel"><div class="meta"><span class="tagl tool">this tool's answer</span>for this chart</div>${q.parts.map((p, i) => `<p class="mpart"><b>${i + 1}.</b> ${esc(p)}</p>`).join('')}${squareHTML(q.square)}</div>
+    <details class="how"><summary>Her model answer, word for word (her written SAQ, quiz 211104)</summary><div class="herans">${HER_SAQ.map(t => `<p>${esc(t)}</p>`).join('')}</div></details>`;
+}
+function checkChips(it) {
+  const { q, st } = it, lines = [];
+  let slip = null, allOk = true;
+  q.groups.forEach(g => {
+    let ok, bad = null;
+    if (g.multi) { const p = st.pk[g.id] || []; const rt = g.opts.map((o, j) => o.right ? j : -1).filter(j => j >= 0);
+      ok = p.length === rt.length && rt.every(j => p.includes(j)); bad = p.map(j => g.opts[j]).find(o => !o.right && o.slip);
+      if (!ok) lines.push(`${g.label} ${p.some(j => !g.opts[j].right) ? 'You picked a reason that is not true of this chart.' : 'You missed a reason that is true.'}`); }
+    else { const o = g.opts[st.pk[g.id]]; ok = !!(o && o.right); bad = !ok && o && o.slip ? o : null; if (!ok) lines.push(`${g.label}: ${g.opts.find(x => x.right).t}`); }
+    if (!ok) { allOk = false; if (!slip && bad) slip = bad.slip; }
+  });
+  st.done = true; st.ok = allOk; st.slip = allOk ? null : slip || 'W9'; st.tagged = !!slip; st.evLines = lines.slice(0, 3);
+}
+/* from a story: three steps in one item */
+function storyHTML(it) {
+  const { q, st } = it; st.step = st.step || (drawFirst() ? 'draw' : 1);
+  let h = `<div class="storyt">${esc(q.story)}</div>`;
+  if (st.step === 'draw') return h + `<p class="meta">Draw the pedigree chart for this family on paper: squares for males, circles for females, shade who is affected, and dot anyone you think must be a carrier.</p><button class="btn primary wide" id="drawn">I've drawn it: show me the chart</button>`;
+  if (st.step === 'drawCheck') {
+    const right = q.charts4.find(c => c.right);
+    const items = ['Squares for the males, circles for the females', 'The right people shaded (affected)', 'Three generations, grandparents at the top, in the right family on the right side', "Partners joined by a line, children hanging from their parents' line", 'The carriers the story forces are dotted'];
+    st.dticks = st.dticks || items.map(() => false);
+    return h + `<div class="chartbox">${GEN.svg(right.ch, { aria: 'The chart for this story' })}</div><p class="meta">Tick what your drawing got right.</p>
+      ${items.map((t, i) => `<button class="wpart${st.dticks[i] ? ' on' : ''}" data-dt="${i}">${esc(t)}</button>`).join('')}<button class="btn primary wide" id="drawDone">Next: the carriers</button>`;
+  }
+  if (st.step === 1) {
+    return h + `<div class="cq">Which chart matches the story? <span class="meta">(a dot marks a carrier the story forces)</span></div>
+      <div class="c4">${q.charts4.map((c, i) => { let cl = 'c4b'; if (st.c4 != null) { if (c.right) cl += ' k'; else if (i === st.c4) cl += ' x'; }
+        return `<button class="${cl}" data-c4="${i}"${st.c4 != null ? ' disabled' : ''}><span class="meta">Chart ${i + 1}</span><div class="chartbox">${GEN.svg(c.ch, { aria: 'Chart ' + (i + 1) })}</div>${st.c4 != null && (c.right || i === st.c4) ? `<span class="c4why">${esc(c.why)}</span>` : ''}</button>`; }).join('')}</div>
+      ${st.c4 != null ? '<button class="btn primary wide" id="storyNext">Next: the carriers</button>' : ''}`;
+  }
+  if (st.step === 2) {
+    if (!st.tapDone) return h + `<div class="cq">${esc(q.tapWhat)} <span class="meta">(on the chart; tap again to untap)</span></div><div class="tapbar"><span class="hint">(${st.taps.length} tapped)</span><button class="btn primary" id="ckTap">Check</button></div>`;
+    const K = new Set(q.tapKey), T = new Set(st.taps), nm = id => GEN.nameOf(q.chart, id);
+    const miss = q.tapKey.filter(id => !T.has(id)), extra = st.taps.filter(id => !K.has(id));
+    return h + `<div class="evres">${st.tapOk ? '<div>✓ Exactly the right people.</div>' : ''}${miss.length ? `<div>✗ Missed: ${miss.map(nm).map(esc).join(', ')}</div>` : ''}${extra.length ? `<div>✗ Not forced: ${extra.map(nm).map(esc).join(', ')}</div>` : ''}
+      <div class="meta">${esc(q.mode === 'AD' ? "Huntington's has no carriers: everyone affected here has an unaffected parent or child, so is Hh." : q.mode === 'XLR' ? "An affected man's daughters all carry it, and every affected boy's mum carries it. A colour-blind daughter needs a carrier mum." : 'Both parents of an affected child are carriers, even one who married in.')}</div></div>
+      <button class="btn primary wide" id="storyNext">Next: passing it on</button>`;
+  }
+  // step 3
+  st.sq3 = st.sq3 || [null, null];
+  return h + q.qs.map((x, qi) => `<div class="cq">${esc(x.stem)}</div>${x.opts.map((o, i) => { let c = 'opt'; if (st.sq3[qi] != null) { c += ' lock'; if (i === x.key) c += ' k'; else if (i === st.sq3[qi]) c += ' x'; }
+    return `<button class="${c}" data-s3="${qi}:${i}"${st.sq3[qi] != null ? ' tabindex="-1"' : ''}><span class="okey">${String.fromCharCode(97 + i)}</span><span>${esc(o.t)}</span></button>`; }).join('')}`).join('');
+}
+function storyFinish(it) {
+  const { q, st } = it;
+  const slips = [];
+  if (st.c4 != null && !q.charts4[st.c4].right) slips.push(q.charts4[st.c4].slip);
+  if (st.tapOk === false) slips.push(q.mode === 'XLR' ? 'W1' : q.mode === 'AR' ? 'W1' : 'W5');
+  q.qs.forEach((x, i) => { if (st.sq3[i] !== x.key) slips.push(x.opts[st.sq3[i]].slip || 'W9'); });
+  const drawOk = st.dticks ? st.dticks.every(Boolean) : true;
+  st.done = true; st.ok = !slips.length && drawOk; st.slip = slips[0] || null; st.tagged = !!slips.find(Boolean);
+  st.evLines = [st.c4 != null ? (q.charts4[st.c4].right ? 'Step 1: the right chart.' : 'Step 1: ' + q.charts4[st.c4].why) : `Step 1 (your drawing): ${st.dticks.filter(Boolean).length} of 5 ticked.`,
+    st.tapOk ? 'Step 2: exactly the right people.' : 'Step 2: the carriers were not quite right.', `Step 3: ${q.qs.filter((x, i) => st.sq3[i] === x.key).length} of 2 right.`];
+  record(q, st.ok, st.ok ? null : st.slip || 'W9');
+}
+/* her charts: every question type, asked of her own chart (§5.5) */
+function startHer(id) {
+  const g = HER_GROUPS.find(x => x.ids.includes(id));
+  const plans = g.ids.map(i => ({ id: i, P: GEN.herPlan(HER.find(s => s.id === i), HC[i]) }));
+  const title = (g.part === 'ab' ? 'Pedigree A and B' : HER.find(s => s.id === g.ids[0]).t) + ': every question';
+  startSit(title, k => {
+    for (let t = 0; t < 12; t++) {
+      const pl = plans[(k + t) % plans.length], [ty, o] = pl.P.plan[(k * 3 + t) % pl.P.plan.length];
+      const R = GEN.rng((Math.random() * 2 ** 31) | 0);
+      const q = GEN.make(ty, R, Object.assign({ chart: HC[pl.id] }, o));
+      if (q) { q.herId = pl.id; if (pl.P.premise && !/^If this|illustrates/.test(q.stem) && ty !== 'ped-read') q.stem = `(Her chart, taken as ${GEN.MODE_NAME[pl.P.mode]}.) ` + q.stem; return q; }
+    }
+    return null;
+  }, 10);
 }
 
 /* ── progress screen ────────────────────────────────────────────────────────────────── */
@@ -848,8 +1013,10 @@ function homeView() {
   return `${idCard()}
     <button class="hero" data-go="decide"><span><small>${top ? 'Next up · aimed at your most-missed slip, ' + top + ' ' + esc(GEN.SLIPS[top].name) : 'Next up · no misses yet, so Decide for me is dealing evenly'}</small><b>🧭 Decide for me: 10 at a time</b></span><span class="go">›</span></button>
     <div class="lsec">Practise: I know what I want</div>
-    <button class="lrow" data-nav="ped"><span class="lic">🌳</span><span class="ltx"><b>Pedigree drills</b><small>${log.filter(e => /^ped/.test(e.ty)).length} answered · 12 question shapes</small></span><span class="lch">›</span></button>
+    <button class="lrow" data-nav="ped"><span class="lic">🌳</span><span class="ltx"><b>Pedigree drills</b><small>${log.filter(e => /^ped/.test(e.ty)).length} answered · 11 question shapes</small></span><span class="lch">›</span></button>
     <button class="lrow" data-nav="pun"><span class="lic">▦</span><span class="ltx"><b>Punnett squares</b><small>${log.filter(e => /^pun/.test(e.ty)).length} answered · 10 question shapes</small></span><span class="lch">›</span></button>
+    <button class="lrow" data-nav="kar"><span class="lic">🧫</span><span class="ltx"><b>Karyotypes</b><small>${log.filter(e => /^kar/.test(e.ty)).length} answered · her seven shapes</small></span><span class="lch">›</span></button>
+    <button class="lrow" data-nav="write"><span class="lic">✍️</span><span class="ltx"><b>Write it · from a story</b><small>Her 4-part SAQ; the final's cases 14 and 15</small></span><span class="lch">›</span></button>
     <div class="lsec">Test yourself</div>
     <button class="lrow" data-go="set"><span class="lic">⏱</span><span class="ltx"><b>Test 3 genetics set</b><small>12 items in her shapes · 21 min (her pace) · 1 written</small></span><span class="lch">›</span></button>
     <div class="lsec">Plan</div>
@@ -873,8 +1040,10 @@ function render() {
   else if (a === 'ped') main.innerHTML = pedList();
   else if (a === 'pun') main.innerHTML = punList();
   else if (a === 'prog') main.innerHTML = progView();
+  else if (a === 'kar') main.innerHTML = karList();
+  else if (a === 'write') main.innerHTML = writeList();
   else main.innerHTML = homeView();
-  document.title = a === 'her' ? 'Her charts · HS2 Genetics' : a === 'ped' ? 'Pedigree drills · HS2 Genetics' : a === 'pun' ? 'Punnett squares · HS2 Genetics' : a === 'prog' ? 'Slips and readiness · HS2 Genetics' : 'HS2 Genetics · Trainer';
+  document.title = a === 'her' ? 'Her charts · HS2 Genetics' : a === 'ped' ? 'Pedigree drills · HS2 Genetics' : a === 'pun' ? 'Punnett squares · HS2 Genetics' : a === 'prog' ? 'Slips and readiness · HS2 Genetics' : a === 'kar' ? 'Karyotypes · HS2 Genetics' : a === 'write' ? 'Write it · HS2 Genetics' : 'HS2 Genetics · Trainer';
 }
 document.addEventListener('click', e => {
   const t = e.target;
@@ -883,7 +1052,9 @@ document.addEventListener('click', e => {
   const go = t.closest('[data-go]'); if (go) { if (go.dataset.go === 'decide') startDecide(); else startSet(); return; }
   if (t.closest('#undoLast')) { const l = logGet(); l.pop(); SV('log', l); render(); return; }
   if (t.closest('#resetAll')) { if (confirm('Reset all progress in this browser? Your slips, streaks and history go.')) { SV('log', []); render(); } return; }
-  const d = t.closest('[data-drill]'); if (d) { const ty = d.dataset.drill; startSit(ty === 'mixed' ? 'Mixed pedigree round' : ty === 'mixedPun' ? 'Mixed Punnett round' : TYPE_LABEL[ty], () => makeQ(ty)); return; }
+  const d = t.closest('[data-drill]'); if (d) { const [ty, md] = d.dataset.drill.split(':'); startSit(ty === 'mixed' ? 'Mixed pedigree round' : ty === 'mixedPun' ? 'Mixed Punnett round' : ty === 'mixedKar' ? 'Mixed karyotypes' : TYPE_LABEL[ty], () => makeQ(ty, md ? { mode: md } : {}), ty === 'story' ? 5 : 10); return; }
+  const ah = t.closest('[data-askher]'); if (ah) { startHer(ah.dataset.askher); return; }
+  if (t.id === 'drawFirst') { SV('drawFirst', t.checked); return; }
   if (route() !== 'sit' || !SIT) return;
   const it = cur();
   if (t.closest('#leave')) { if (SIT.test && !SIT.fin && !SIT.review && SIT.items.some(x => x.st.done) && !confirm('Stop this set? Nothing is scored.')) return; SIT = null; nav(''); return; }
@@ -934,6 +1105,17 @@ document.addEventListener('click', e => {
     st.msg = st.ok ? '' : !g.gam ? 'A gamete is wrong: each parent gives ONE allele per gamete, so Bb makes B and b.' : 'A box is wrong: each box takes ONE letter from the top and ONE from the side.';
     record(q, st.ok, st.slip); afterAnswer(it); paintSit(); return;
   }
+  const cg = t.closest('[data-cg]'); if (cg && !st.done) { st.pk = st.pk || {}; const g = q.groups.find(x => x.id === cg.dataset.cg), j = +cg.dataset.cj;
+    if (g.multi) { const a = st.pk[g.id] || (st.pk[g.id] = []); const i = a.indexOf(j); if (i >= 0) a.splice(i, 1); else a.push(j); } else st.pk[g.id] = j;
+    paintSit(); return; }
+  if (t.closest('#ckChips')) { checkChips(it); record(q, st.ok, st.slip); afterAnswer(it); paintSit(); return; }
+  if (t.closest('#drawn')) { st.step = 'drawCheck'; paintSit(); return; }
+  const dt = t.closest('[data-dt]'); if (dt) { st.dticks[+dt.dataset.dt] = !st.dticks[+dt.dataset.dt]; paintSit(); return; }
+  if (t.closest('#drawDone')) { st.step = 2; paintSit(); window.scrollTo(0, 0); return; }
+  const c4 = t.closest('[data-c4]'); if (c4 && st.c4 == null) { st.c4 = +c4.dataset.c4; paintSit(); return; }
+  if (t.closest('#ckTap')) { st.tapDone = true; st.tapOk = st.taps.length === q.tapKey.length && q.tapKey.every(x => st.taps.includes(x)); paintSit(); return; }
+  if (t.closest('#storyNext')) { st.step = st.step === 1 ? 2 : 3; paintSit(); window.scrollTo(0, 0); return; }
+  const s3 = t.closest('[data-s3]'); if (s3) { const [qi, oi] = s3.dataset.s3.split(':').map(Number); if (st.sq3[qi] == null) { st.sq3[qi] = oi; if (st.sq3.every(v => v != null)) storyFinish(it); paintSit(); } return; }
   if (t.closest('#reveal')) { st.rev = true; st.ticks = [false, false, false, false]; paintSit(); return; }
   const tk = t.closest('[data-tick]'); if (tk && st.rev && !st.done) { st.ticks[+tk.dataset.tick] = !st.ticks[+tk.dataset.tick]; paintSit(); return; }
   if (t.closest('#markDone')) { st.done = true; st.ok = st.ticks.every(Boolean); st.slip = null; st.tagged = false; record(q, st.ok, null); paintSit(); return; }
@@ -950,7 +1132,13 @@ $('#helpBtn').onclick = () => {
   <h3>The two doors</h3>
   <p><b>🧭 Decide for me</b> deals 10 at a time: about 6 aimed at the slip you miss most (over your last 100 answers), 3 from the parts of her list you have seen least, and 1 review of a shape you missed before. A miss comes back 3 questions later, once. With no misses yet it says so and deals evenly, weighted towards pedigrees. <b>Practise</b> is the other door: pick any drill yourself.</p>
   <h3>The Test 3 genetics set</h3>
-  <p>12 items in her shapes and her option wordings, on her clock (65 min for 37 questions is about 1 min 45 s each, so 21 min), with one written question last. No feedback until the end; then the score is split by slip and you can review every answer with its feedback. Karyotypes join the set in the next build.</p>
+  <p>12 items in her shapes and her option wordings (one of them a karyotype), on her clock (65 min for 37 questions is about 1 min 45 s each, so 21 min), with one written question last. No feedback until the end; then the score is split by slip and you can review every answer with its feedback.</p>
+  <h3>Write it · from a story</h3>
+  <p>30% of Test 3 is written. <b>Build it from phrases</b> answers her four pedigree questions by tapping her-worded phrases; <b>Write it on paper</b> reveals this tool's answer for the chart and her own model answer word for word, then you tick what you got. <b>From a story</b> is the final exam's case 14 and 15 shape: pick the chart that matches a family told in words, tap everyone who must be a carrier, then answer the pass-it-on questions (or draw it on paper first).</p>
+  <h3>Karyotypes</h3>
+  <p>A karyogram drawn from data (22 autosome pairs at their real relative lengths, plus the sex pair) in her seven shapes: normal male or female, trisomy 21, 18 or 13, 45,X and 47,XXY. The pair that gives it away is ringed after you answer.</p>
+  <h3>Her charts: ask me every kind of question</h3>
+  <p>On any of her charts, 🎲 asks every question shape the engine can key on that chart: counts, relations, the mode, genotypes, the next child, genotype everyone. Where her chart only fits one mode but is too thin to name it from the chart, the question says which mode it takes.</p>
   <h3>Slips and readiness</h3>
   <p>One row per part of her Genetics list. A row is mastered after 3 right in a row, with no hints, across at least 2 days. Undo takes back your last answer; reset clears everything.</p>
   <h3>Where the answers come from</h3>

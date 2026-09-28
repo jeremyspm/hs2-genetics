@@ -1,6 +1,6 @@
-# HS2 Genetics · Trainer (v1 · live, unlisted: https://jeremyspm.github.io/hs2-genetics/)
+# HS2 Genetics · Trainer (live, unlisted: https://jeremyspm.github.io/hs2-genetics/)
 
-Pedigree charts, Punnett squares and (next build) karyotypes for HS2 (722.541) Test 3, which closes Mon 26 Oct 2026.
+Pedigree charts, Punnett squares and karyotypes for HS2 (722.541) Test 3, which closes Mon 26 Oct 2026.
 Her words, in six quiz stems: **PEDIGREE CHARTS WILL BE TESTED IN TEST 3**.
 
 It makes endless fresh questions in the shapes her Module 3 bank uses (from `hs2-test3`, 168 genetics questions), works out
@@ -35,5 +35,4 @@ node tests/drive.mjs --n=20   # needs the server; Playwright from $PLAYWRIGHT, C
 
 ## Not done yet
 
-P6: Write it with phrase chips, From a story (final exam cases 14 and 15), Karyotypes, and every question type asked of her own
-charts. P7: the full README, and (only if asked) link cards on `hs2-test3` and `hs2-final`.
+P7: the full README in the Paper Sim voice, and (only if asked) link cards on `hs2-test3` and `hs2-final`.

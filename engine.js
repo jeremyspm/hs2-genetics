@@ -1033,7 +1033,7 @@ GEN.allSlip = allSlip;
 function modeQ(R, o) {
   const mode = o.mode;
   for (let t = 0; t < 40; t++) {
-    const ch = genChart(R, mode, { numbering: o.numbering });
+    const ch = o.chart || genChart(R, mode, { numbering: o.numbering });
     if (!ch) continue;
     const A = analyse(ch);
     if (!A.P.includes(mode)) continue;
@@ -1064,9 +1064,9 @@ function modeFeedback(ch, A, ks, proof, others) {
 function genoQ(R, o) {
   const mode = o.mode;
   if (mode === 'YL' || mode === 'MT') return null;
-  const shade = o.premise === 'shade';
+  const shade = o.premise === 'shade' && !o.chart;   // never re-title or re-shade one of her charts
   for (let t = 0; t < 40; t++) {
-    const ch = genChart(R, mode, { numbering: shade ? 'running' : o.numbering });
+    const ch = o.chart || genChart(R, mode, { numbering: shade ? 'running' : o.numbering });
     if (!ch) continue;
     const A = analyse(ch);
     if (!(o.premise ? A.res[mode].possible : foundMode(ch, A) === mode)) continue;
@@ -1166,7 +1166,7 @@ function nextQ(R, o) {
   const mode = o.mode;
   if (mode === 'YL' || mode === 'MT') return null;
   for (let t = 0; t < 50; t++) {
-    const ch = genChart(R, mode, { numbering: o.numbering || R.weighted([['roman', 3], ['names', 1]]) });
+    const ch = o.chart || genChart(R, mode, { numbering: o.numbering || R.weighted([['roman', 3], ['names', 1]]) });
     if (!ch) continue;
     const X = prep(ch);
     const fams = X.fams.filter(f => !X.by[f.f].hidden && !X.by[f.m].hidden);
@@ -1195,8 +1195,8 @@ const READ_KINDS = ['females', 'males', 'affected', 'deceased', 'gens', 'gender'
 function readQ(R, o) {
   const mode = o.mode || R.pick(['AD', 'AR', 'XLR', 'XLD']);
   for (let t = 0; t < 30; t++) {
-    const kind = o.kind || R.weighted([['females', 2], ['males', 1], ['affected', 1], ['deceased', 1], ['gens', 1], ['gender', 2], ['relation', 3], ['kids', 2]]);
-    const ch = genChart(R, mode, { numbering: o.numbering || R.weighted([['roman', 4], ['running', 1], ['names', 1]]), deceased: kind === 'deceased' ? 0.9 : 0.12 });
+    const kind = o.kind || (o.kinds ? R.pick(o.kinds) : null) || R.weighted([['females', 2], ['males', 1], ['affected', 1], ['deceased', 1], ['gens', 1], ['gender', 2], ['relation', 3], ['kids', 2]]);
+    const ch = o.chart || genChart(R, mode, { numbering: o.numbering || R.weighted([['roman', 4], ['running', 1], ['names', 1]]), deceased: kind === 'deceased' ? 0.9 : 0.12 });
     if (!ch) continue;
     const V = visible(ch), X = prep(ch);
     const args = { kind };
@@ -1272,7 +1272,7 @@ function blankSlip(slot, x, key, mode) {
 function clozeQ(R, o) {
   const mode = o.mode;
   for (let t = 0; t < 60; t++) {
-    const ch = genChart(R, mode, { numbering: 'roman' });
+    const ch = o.chart || genChart(R, mode, { numbering: 'roman' });
     if (!ch) continue;
     for (const v of mode === 'YL' ? ['v3'] : R.shuffle(['v1', 'v2'])) {
       const D = DERIVE['ped-cloze'](ch, { mode, v }); if (!D.ok) continue;
@@ -1320,7 +1320,7 @@ function abQ(R, o) {
 function phenoQ(R, o) {
   const mode = RECESSIVE[o.mode] ? o.mode : R.pick(['XLR', 'AR']);
   for (let t = 0; t < 40; t++) {
-    const ch = genChart(R, mode, { numbering: 'roman' });
+    const ch = o.chart || genChart(R, mode, { numbering: 'roman' });
     if (!ch) continue;
     const r = solve(ch, mode), V = visible(ch).filter(p => p.label);
     const carriers = V.filter(p => !p.affected && r.sets[p.id].length === 1 && carrierOf(mode, p.sex, r.sets[p.id][0]));
@@ -1339,8 +1339,8 @@ function phenoQ(R, o) {
 function bbQ(R, o) {
   const mode = o.mode === 'AR' || o.mode === 'AD' ? o.mode : R.pick(['AD', 'AR']);
   for (let t = 0; t < 40; t++) {
-    const col = R.pick(['black', 'red', 'blue', 'grey']);
-    const ch = genChart(R, mode, { numbering: 'roman', fill: col });
+    const col = o.chart ? ({ salmon: 'pink' }[o.chart.fill] || o.chart.fill || 'black') : R.pick(['black', 'red', 'blue', 'grey']);
+    const ch = o.chart || genChart(R, mode, { numbering: 'roman', fill: col });
     if (!ch) continue;
     const args = { mode, col };
     const D = DERIVE['ped-bb'](ch, args); if (!D.ok) continue;
@@ -1372,7 +1372,7 @@ function mtQ(R) {
 function allQ(R, o) {
   const mode = ['AD', 'AR', 'XLR'].includes(o.mode) ? o.mode : R.pick(['AD', 'AR', 'AR', 'XLR']);
   for (let t = 0; t < 40; t++) {
-    const ch = genChart(R, mode, { numbering: 'roman', gens: R.pick([3, 3, 4]) });
+    const ch = o.chart || genChart(R, mode, { numbering: 'roman', gens: R.pick([3, 3, 4]) });
     if (!ch || visible(ch).length > 14) continue;
     const args = { mode, L: R.pick(LETTERS) };
     const D = DERIVE['ped-all'](ch, args); if (!D.ok) continue;
@@ -1816,7 +1816,7 @@ DERIVE['ped-write'] = (ch, a) => { const w = writeParts(ch, a); return w ? Objec
 function writeQ(R, o) {
   const mode = o.mode === 'AR' || o.mode === 'AD' ? o.mode : R.pick(['AD', 'AD', 'AR']);
   for (let t = 0; t < 80; t++) {
-    const ch = genChart(R, mode, { numbering: 'roman', gens: R.pick([3, 3, 4]) });
+    const ch = o.chart || genChart(R, mode, { numbering: 'roman', gens: R.pick([3, 3, 4]) });
     if (!ch) continue;
     const args = { mode, L: R.pick(['B', 'A', 'D', 'H', 'E']) };
     const w = writeParts(ch, args); if (!w) continue;
@@ -1826,6 +1826,296 @@ function writeQ(R, o) {
   return null;
 }
 PED_TYPES['ped-write'] = { label: 'Write it (her 4-part SAQ)', make: writeQ, modes: ['AD', 'AR'] };
+
+/* ── karyotypes (§4.9, §5.8) ──────────────────────────────────────────────────────────
+   A karyogram as SVG: 22 autosome pairs sized by their real relative length (groups A-G), a centromere and simple
+   banding, plus the sex pair. Variants: normal XX / XY, +21, +18, +13, 45,X and 47,XXY. */
+const CHR_LEN = { 1: 248, 2: 242, 3: 198, 4: 190, 5: 181, 6: 171, 7: 159, 8: 145, 9: 138, 10: 134, 11: 135, 12: 133, 13: 114, 14: 107, 15: 102, 16: 90, 17: 83, 18: 80, 19: 59, 20: 64, 21: 47, 22: 51, X: 156, Y: 57 };
+const CHR_CEN = { 1: .5, 2: .39, 3: .47, 4: .26, 5: .27, 6: .35, 7: .37, 8: .31, 9: .35, 10: .3, 11: .39, 12: .27, 13: .15, 14: .15, 15: .15, 16: .41, 17: .31, 18: .23, 19: .46, 20: .45, 21: .2, 22: .22, X: .39, Y: .27 };
+const KARYO = {
+  normalM: { sex: ['X', 'Y'], extra: null, n: 46, name: 'a normal male karyotype', dis: 'No disorder: a normal karyotype', sexKey: 'Male, since he has a Y chromosome' },
+  normalF: { sex: ['X', 'X'], extra: null, n: 46, name: 'a normal female karyotype', dis: 'No disorder: a normal karyotype', sexKey: 'Female, since she has two X chromosomes' },
+  t21: { sex: null, extra: 21, n: 47, name: 'trisomy 21', dis: "Down's syndrome (trisomy 21)" },
+  t18: { sex: null, extra: 18, n: 47, name: 'trisomy 18', dis: 'Edwards syndrome (trisomy 18)' },
+  t13: { sex: null, extra: 13, n: 47, name: 'trisomy 13', dis: 'Trisomy 13 (Patau syndrome)' },
+  xo: { sex: ['X'], extra: null, n: 45, name: '45,X', dis: "Turner's syndrome (45,X)", sexKey: 'Female, but with only one X chromosome' },
+  xxy: { sex: ['X', 'X', 'Y'], extra: null, n: 47, name: '47,XXY', dis: "Klinefelter's syndrome (47,XXY)", sexKey: 'Male, since he has a Y chromosome' }
+};
+GEN.KARYO = KARYO;
+function karyoSet(v, sex) {         // the chromosome list for a variant (a trisomy takes a random sex)
+  const K = KARYO[v], out = [];
+  for (let c = 1; c <= 22; c++) out.push({ c: String(c), n: c === K.extra ? 3 : 2 });
+  out.push({ c: 'sex', list: K.sex || (sex === 'F' ? ['X', 'X'] : ['X', 'Y']) });
+  return out;
+}
+GEN.karyoSet = karyoSet;
+function chromSVG(o, x, y, label, H) {
+  const len = CHR_LEN[label] / 248 * H, w = 9, cen = CHR_CEN[label] * len;
+  const R = rng(String(label).split('').reduce((a, ch) => a * 31 + ch.charCodeAt(0), 7));
+  let s = `<rect x="${x}" y="${y}" width="${w}" height="${len}" rx="4.5" fill="#f3f4f6" stroke="#374151" stroke-width="1.1"/>`;
+  const nb = 3 + Math.floor(len / 22);
+  for (let i = 0; i < nb; i++) { const by = y + 4 + R() * (len - 8), bh = 1.5 + R() * 3.5; if (Math.abs(by - (y + cen)) > 3) s += `<rect x="${x + 1}" y="${by}" width="${w - 2}" height="${bh}" fill="#6b7280"/>`; }
+  s += `<path d="M${x - .5} ${y + cen - 2.5} Q${x + w / 2} ${y + cen + 1} ${x + w + .5} ${y + cen - 2.5} L${x + w + .5} ${y + cen + 2.5} Q${x + w / 2} ${y + cen - 1} ${x - .5} ${y + cen + 2.5} Z" fill="#fff"/>`;
+  o.push(s);
+  return len;
+}
+function karyoSVG(v, sex, opts) {
+  opts = opts || {};
+  const set = karyoSet(v, sex), H = 70, o = [];
+  const rows = [[1, 2, 3, 4, 5], [6, 7, 8, 9, 10, 11, 12], [13, 14, 15, 16, 17, 18], [19, 20, 21, 22, 'sex']];
+  // each row is as tall as its longest chromosome (the X sits in the last row, so that row is set by the X)
+  const rowH = rows.map(row => Math.max(...row.flatMap(c => c === 'sex' ? set.find(s => s.c === 'sex').list : [String(c)]).map(l => CHR_LEN[l])) / 248 * H + 26);
+  let y = 10;
+  const W = 300;
+  rows.forEach((row, ri) => {
+    const pairs = row.map(c => set.find(s => s.c === String(c)));
+    const widths = pairs.map(p => (p.list ? p.list.length : p.n) * 11 + 4);
+    const gap = 10, total = widths.reduce((a, b) => a + b, 0) + gap * (pairs.length - 1);
+    let x = (W - total) / 2;
+    pairs.forEach((p, i) => {
+      const ls = p.list || Array(p.n).fill(p.c);
+      let maxL = 0;
+      ls.forEach((lab, j) => { maxL = Math.max(maxL, chromSVG(o, x + 2 + j * 11, y, lab, H)); });
+      const hi = opts.mark && ((p.c === 'sex' && opts.mark === 'sex') || String(p.c) === String(opts.mark));
+      if (hi) o.push(`<rect x="${x - 2}" y="${y - 4}" width="${widths[i] + 4}" height="${maxL + 8}" rx="5" fill="none" stroke="#f59e0b" stroke-width="2.5"/>`);
+      o.push(`<text x="${x + widths[i] / 2}" y="${y + rowH[ri] - 12}" text-anchor="middle" font-size="10" fill="#111">${p.c === 'sex' ? ls.join('') : p.c}</text>`);
+      x += widths[i] + gap;
+    });
+    y += rowH[ri];
+  });
+  return `<svg class="karyo" viewBox="0 0 ${W} ${y + 4}" role="img" aria-label="${esc(opts.aria || 'A karyotype')}" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,sans-serif" style="max-width:560px">${o.join('')}</svg>`;
+}
+GEN.karyoSVG = karyoSVG;
+const KAR_DIS_OPTS = Object.values(KARYO).map(k => k.dis).filter((x, i, a) => a.indexOf(x) === i);
+/* her own written answer on karyotypes, word for word (hs2-test3/content/her-answers.json, quiz 211104) */
+const HER_KARYO = ['A human karyotype is a diploid complement of homologus chromosome pairs - for humans this is 46 total chromosomes, or 23 pairs of chromosomes.',
+  'This includes 22 pairs of autosomes and 1 pair of sex chromosomes XX or XY.', 'Aneuploidy is when a human has a different number of chromosomes.',
+  "Two examples are Down's syndrome, Trisomy 21, when a person have 3 copies of chromosome 21 instead of 2.", 'Turners syndromes is when a person is XO, they have one sex chromosome only.',
+  'Aneuploidys are caused by non-disjunction, when the chromosomes do not separate properly during meiosis 2!'];
+GEN.HER_KARYO = HER_KARYO;
+const KAR_FACTS = [
+  { q: 'A normal human karyotype has…', a: '22 pairs of homologous autosomes and 1 pair of sex chromosomes', d: ['23 pairs of autosomes and 1 pair of sex chromosomes', '22 pairs of sex chromosomes and 1 pair of autosomes', '46 pairs of chromosomes'], her: true },
+  { q: 'A normal human male has 23 ______ pairs of chromosomes.', a: 'homologous', d: ['analogous', 'identical', 'sex'] },
+  { q: "Trisomy 21 (Down's syndrome) gives a total of ___ chromosomes.", a: '47', d: ['45', '46', '21'] },
+  { q: "Turner's syndrome is…", a: '45,X: one X chromosome and no second sex chromosome', d: ['47,XXY: an extra X chromosome in a male', 'three copies of chromosome 21', '46,XX with one damaged X'] },
+  { q: "Klinefelter's syndrome is…", a: '47,XXY: a male with an extra X chromosome', d: ['45,X: a female with one X chromosome', 'three copies of chromosome 18', '47,XYY: an extra Y chromosome'] },
+  { q: 'Aneuploidy is…', a: 'an abnormal number of chromosomes', d: ["a change in one gene's DNA sequence", 'a whole extra set of chromosomes', 'a gene carried on the X chromosome'], her: true },
+  { q: 'Aneuploidy is usually caused by…', a: 'non-disjunction: chromosomes not separating properly in meiosis', d: ['crossing over between homologous chromosomes', 'a point mutation in one gene', 'mitochondrial DNA from the mother'], her: true },
+  { q: 'Which TWO are NOT simple recessive traits?', a: 'Schizophrenia and Down syndrome', d: ['Cystic fibrosis and PKU', 'Tay-Sachs and albinism', 'Schizophrenia and albinism'] },
+  { q: 'How many chromosomes are in a normal human gamete (egg or sperm)?', a: '23', d: ['46', '22', '47'] }
+];
+DERIVE['kar-dis'] = (ch, a) => { const key = KARYO[a.v].dis; return { ok: true, key, tagged: [], correct: t => t === key }; };
+DERIVE['kar-sex'] = (ch, a) => { const K = KARYO[a.v]; const list = K.sex || (a.sex === 'F' ? ['X', 'X'] : ['X', 'Y']);
+  const key = list.includes('Y') ? 'Male, since he has a Y chromosome' : list.length === 1 ? 'Female, but with only one X chromosome' : 'Female, since she has two X chromosomes';
+  return { ok: true, key, tagged: [{ t: 'Not enough information given', slip: 'W8' }].filter(x => x.t !== key), correct: t => t === key }; };
+DERIVE['kar-count'] = (ch, a) => { const key = String(KARYO[a.v].n); return { ok: true, key, tagged: [{ t: '23', slip: 'W9' }], correct: t => t === key }; };
+DERIVE['kar-fact'] = (ch, a) => { const F = KAR_FACTS[a.i]; return { ok: true, key: F.a, tagged: [], correct: t => t === F.a }; };
+function karQ(type) {
+  return function (R) {
+    if (type === 'kar-fact') {
+      const i = R.int(0, KAR_FACTS.length - 1), F = KAR_FACTS[i], args = { i };
+      const q = mcq(R, { t: F.a }, F.d.map(t => ({ t, slip: null })), 4);
+      return { type, skill: 'karyotype', args, stem: F.q, opts: q.opts, key: q.key,
+        fb: { rule: ['A karyotype shows 46 chromosomes: 22 pairs of autosomes and 1 pair of sex chromosomes (XX or XY). Aneuploidy is an abnormal number, usually from non-disjunction.'], evidence: [], glow: [], note: '', her: F.her ? HER_KARYO : null } };
+    }
+    const v = R.pick(Object.keys(KARYO)), sex = R.pick(['M', 'F']), args = { v, sex };
+    const D = DERIVE[type](null, args), K = KARYO[v];
+    let stem, fill, mark;
+    if (type === 'kar-dis') { stem = 'What disorder is present in this karyotype?'; fill = KAR_DIS_OPTS; mark = K.extra || (K.sex ? 'sex' : null); }
+    if (type === 'kar-sex') { stem = 'Is this karyotype from a male or a female?'; fill = ['Male, since he has a Y chromosome', 'Female, since she has two X chromosomes', 'Female, but with only one X chromosome', 'Not enough information given']; mark = 'sex'; }
+    if (type === 'kar-count') { stem = 'How many chromosomes are shown in this karyotype?'; fill = ['45', '46', '47', '23']; mark = K.extra || (K.sex && K.sex.length !== 2 ? 'sex' : null); }
+    const q = mcq(R, { t: D.key }, D.tagged.concat(R.shuffle(fill).map(t => ({ t, slip: null }))), 4);
+    const list = K.sex || (sex === 'F' ? ['X', 'X'] : ['X', 'Y']);
+    const ev = K.extra ? `Chromosome ${K.extra} has three copies instead of two (a trisomy), so there are 47 chromosomes: ${K.dis}.`
+      : v === 'xo' ? "There is only one sex chromosome, an X, and no Y: 45 chromosomes, Turner's syndrome (a female)."
+      : v === 'xxy' ? "The sex chromosomes are X, X and Y: 47 chromosomes. The Y makes him male: Klinefelter's syndrome."
+      : `Every pair has two copies and the sex chromosomes are ${list.join('')}: 46 chromosomes, ${list.includes('Y') ? 'male (he has a Y)' : 'female'}, no disorder.`;
+    return { type, skill: 'karyotype', args, karyo: { v, sex, mark }, stem, opts: q.opts, key: q.key,
+      fb: { rule: ['Count the pairs: 22 pairs of autosomes plus the sex pair. Three copies is a trisomy (47); a lone X is Turner (45). A Y means male.'], evidence: [ev], glow: [], note: '' } };
+  };
+}
+const KAR_TYPES = {
+  'kar-dis': { label: 'What disorder?', make: karQ('kar-dis'), modes: [null] },
+  'kar-sex': { label: 'Male or female?', make: karQ('kar-sex'), modes: [null] },
+  'kar-count': { label: 'How many chromosomes?', make: karQ('kar-count'), modes: [null] },
+  'kar-fact': { label: 'Karyotype facts (her one-liners)', make: karQ('kar-fact'), modes: [null] }
+};
+GEN.KAR_TYPES = KAR_TYPES;
+
+/* ── Write it with phrase chips (§5.6): her four prompts, each answered by tapping her-worded phrases ───────
+   The wrong chips come from the slips. Part 2 ("How can you tell?") is pick-all-that-are-true. */
+const MODE_SENT = { AD: 'This is an autosomal dominant disease.', AR: 'This is an autosomal recessive disease.', XLD: 'This is an X-linked dominant disease.', XLR: 'This is an X-linked recessive disease.' };
+function chipGroups(ch, a) {
+  const w = writeParts(ch, a); if (!w) return null;
+  const mode = a.mode, A = analyse(ch), X = prep(ch), r = A.res[mode], st = { L: a.L, x: 'sup' };
+  const V = visible(ch), am = V.filter(p => p.affected && p.sex === 'M').length, af = V.filter(p => p.affected && p.sex === 'F').length;
+  if (!am || !af) return null;
+  const W = witnesses(ch, A), fs = W.some(x => x.k === 'father-son');
+  // 1 the mode
+  const g1 = { id: 'mode', label: WRITE_PROMPTS[0], opts: Object.keys(MODE_SENT).map(m => ({ t: MODE_SENT[m], right: m === mode, slip: m === mode ? null : modeSlip([mode], { AD: 'autosomal dominant', AR: 'autosomal recessive', XLD: 'x-linked dominant', XLR: 'x-linked recessive' }[m]) })) };
+  // 2 how can you tell (every true reason, and no false one)
+  const T = [], F = [];
+  if (DOMINANT[mode]) { T.push({ t: 'It is in every generation and never skips one, so it is dominant.' }); F.push({ t: 'It skips a generation, so it is recessive.', slip: null }); F.push({ t: 'The unaffected people carry one copy of the dominant allele.', slip: 'W5' }); }
+  else { T.push({ t: 'It skips a generation: two unaffected parents have an affected child, so it is recessive.' }); F.push({ t: 'It is in every generation, so it is dominant.', slip: null }); F.push({ t: 'Unaffected parents who married in cannot carry it.', slip: 'W1' }); }
+  T.push({ t: 'It affects both sexes about equally, so it is likely autosomal.' });
+  F.push({ t: 'It affects mainly males, so it is X-linked.', slip: mode === 'AR' ? 'W4' : 'W2' });
+  (fs ? T : F).push({ t: 'A father passes it to his son, so it cannot be X-linked.', slip: fs ? undefined : 'W9' });
+  const g2 = { id: 'how', label: WRITE_PROMPTS[1], multi: true, opts: T.map(x => ({ t: x.t, right: true, slip: null })).concat(F.map(x => ({ t: x.t, right: false, slip: x.slip || null }))) };
+  // 3 the top parents, one pick each
+  const par = id => { const p = X.by[id], set = r.sets[id], key = fmtG(mode, p.sex, set[0], st);
+    const ds = genoDistractors(mode, ch, p, set, Object.assign({ unk: 'q' }, st), null).filter(d => d.t !== key && !isUnknownText(d.t));
+    const seen = new Set([key]), o = [{ t: key, right: true, slip: null }];
+    for (const d of ds) { if (o.length >= 3) break; if (!seen.has(d.t)) { seen.add(d.t); o.push({ t: d.t, right: false, slip: d.slip }); } }
+    return o; };
+  const g3a = { id: 'dad', label: `Dad (${nameOf(ch, w.fa)})`, opts: par(w.fa) }, g3b = { id: 'mum', label: `Mum (${nameOf(ch, w.mo)})`, opts: par(w.mo) };
+  // 4 the chance, with the ped-next slips
+  const nx = DERIVE['ped-next'](ch, { mode, f: w.fa, m: w.mo, what: 'child', premise: 'mode' });
+  const cs = [{ t: pct(w.v), right: true, slip: null }];
+  (nx.tagged || []).forEach(t => { if (!cs.some(c => c.t === t.t)) cs.push({ t: t.t, right: false, slip: t.slip }); });
+  QUARTERS.forEach(v => { if (!cs.some(c => c.t === pct(v))) cs.push({ t: pct(v), right: false, slip: null }); });
+  const g4 = { id: 'chance', label: WRITE_PROMPTS[3], opts: cs.slice(0, 4) };
+  return { groups: [g1, g2, g3a, g3b, g4], parts: w.parts, square: w.square, top: [w.fa, w.mo] };
+}
+DERIVE['ped-chips'] = (ch, a) => { const g = chipGroups(ch, a); return g ? Object.assign({ ok: true }, g) : { ok: false }; };
+function chipsQ(R, o) {
+  const mode = o.mode === 'AR' || o.mode === 'AD' ? o.mode : R.pick(['AD', 'AR']);
+  for (let t = 0; t < 80; t++) {
+    const ch = o.chart || genChart(R, mode, { numbering: 'roman', gens: R.pick([3, 3, 4]) });
+    if (!ch) continue;
+    const args = { mode, L: R.pick(['B', 'A', 'D', 'H', 'E']) };
+    const g = chipGroups(ch, args); if (!g) continue;
+    g.groups.forEach(gr => { gr.opts = R.shuffle(gr.opts); });
+    return { type: 'ped-chips', skill: 'pedigree', chart: ch, mode, args, stem: 'Look at the following pedigree chart. Build your answer to each of her four questions by tapping phrases.',
+      groups: g.groups, parts: g.parts, square: g.square, glowTop: g.top, fb: { rule: [RULE.skip, RULE.sex, RULE.rec], evidence: [], glow: g.top, note: '' } };
+  }
+  return null;
+}
+PED_TYPES['ped-chips'] = { label: 'Write it with phrases', make: chipsQ, modes: ['AD', 'AR'] };
+
+/* ── From a story (§5.7): her final exam's cases 14 and 15, generated in her case voice ───────────────
+   Step 1 pick the chart that matches the story (the wrong ones are slips), step 2 tap everyone who must be a
+   carrier, step 3 the pass-it-on questions. Charts are small fixed shapes, so they carry their own x. */
+const STORY_COND = {
+  XLR: [{ name: 'red-green colour blindness', adj: 'colour-blind', not: 'not colour-blind' }, { name: 'haemophilia', adj: 'affected by haemophilia', not: 'not affected' }],
+  AR: [{ name: 'cystic fibrosis', adj: 'has cystic fibrosis', not: 'does not' }],
+  AD: [{ name: "Huntington's disease", adj: "has Huntington's disease", not: 'does not' }]
+};
+const SURNAMES = ['Harris', 'Anderson', 'Ngata', 'Tupou', 'Walker', 'Patel', 'Kereama', 'Wilson'];
+function storyPeople(a) {
+  const N = a.names, P = [];
+  const add = (id, sex, gen, x, aff, par) => P.push({ id, sex, gen, x, affected: !!aff, label: N[id], father: par && par[0], mother: par && par[1] });
+  if (a.tpl === 'XLR') {
+    add('pgf', 'M', 1, 1, a.pgfAff); add('pgm', 'F', 1, 2); add('mgm', 'F', 1, 5); add('mgf', 'M', 1, 6, !a.pgfAff);
+    add('sib', 'F', 2, 0.4, a.sibAff, ['pgf', 'pgm']); add('dad', 'M', 2, 2, 0, ['pgf', 'pgm']); add('mum', 'F', 2, 3.4, 0, ['mgf', 'mgm']);
+    add('aunt', 'F', 2, 5, a.auntAff, ['mgf', 'mgm']); add('uncle', 'M', 2, 6.4, 0, ['mgf', 'mgm']);
+    add('me', 'M', 3, 2.7, 1, ['dad', 'mum']);
+    return { people: P, couples: [{ a: 'pgf', b: 'pgm' }, { a: 'mgm', b: 'mgf' }, { a: 'dad', b: 'mum' }] };
+  }
+  if (a.tpl === 'AR') {
+    add('koro', 'M', 1, 2.2); add('kuia', 'F', 1, 3.4);
+    add('mum', 'F', 2, 1.4, 0, ['koro', 'kuia']); add('dad', 'M', 2, 2.5); add('uncle', 'M', 2, 4.2, a.uncleAff, ['koro', 'kuia']);
+    add('me', 'M', 3, 0.4, 1, ['dad', 'mum']); add('s1', 'F', 3, 1.5, 0, ['dad', 'mum']); add('s2', 'F', 3, 2.6, 0, ['dad', 'mum']);
+    return { people: P, couples: [{ a: 'koro', b: 'kuia' }, { a: 'mum', b: 'dad' }] };
+  }
+  // AD
+  add('koro', 'M', 1, 2.4, 1); add('kuia', 'F', 1, 3.5);
+  add('mum', 'F', 2, 1.4, a.mumAff, ['koro', 'kuia']); add('dad', 'M', 2, 2.5); add('aunt', 'F', 2, 3.9, 0, ['koro', 'kuia']); add('uncle', 'M', 2, 5.1, 1, ['koro', 'kuia']); add('uw', 'F', 2, 6.2);
+  add('me', 'F', 3, 1.4, a.meAff, ['dad', 'mum']); add('c1', 'M', 3, 2.5, 0, ['dad', 'mum']); add('c2', 'M', 3, 5.1, a.c2Aff, ['uncle', 'uw']); add('c3', 'F', 3, 6.2, 0, ['uncle', 'uw']);
+  return { people: P, couples: [{ a: 'koro', b: 'kuia' }, { a: 'mum', b: 'dad' }, { a: 'uncle', b: 'uw' }] };
+}
+function storyChart(a, tweak) {
+  const s = storyPeople(Object.assign({}, a, tweak && tweak.flags));
+  const ch = { people: s.people, couples: s.couples, numbering: 'names', fill: a.tpl === 'XLR' ? 'red' : 'black', carriersShown: false };
+  if (tweak && tweak.dots) { ch.carriersShown = true; ch.carrierStyle = 'dot'; ch.people.forEach(p => { if (tweak.dots.includes(p.id)) p.carrierShown = true; }); }
+  return ch;
+}
+function forcedCarriers(ch, mode) {
+  const r = solve(ch, mode); if (!r.possible) return null;
+  return visible(ch).filter(p => !p.affected && r.sets[p.id].length && r.sets[p.id].every(d => carrierOf(mode, p.sex, d))).map(p => p.id);
+}
+function forcedHet(ch) { const r = solve(ch, 'AD'); if (!r.possible) return null; return visible(ch).filter(p => p.affected && r.sets[p.id].length === 1 && r.sets[p.id][0] === 1).map(p => p.id); }
+function storyText(a) {
+  const N = a.names, C = a.cond, S = a.surname;
+  if (a.tpl === 'XLR') {
+    const g = a.pgfAff ? `His dad's father is ${C.adj}; his mum's father is not.` : `His mum's father (his grandad) is ${C.adj}, but his mum's mother is not.`;
+    return `${N.me} is ${C.adj}. Neither of his parents, ${N.mum} and ${N.dad}, is ${C.adj}. ${g} His mum has a sister, ${N.aunt}, who ${a.auntAff ? 'is' : 'is not'} ${C.adj}, and a brother, ${N.uncle}, who is not. His dad's parents and his dad's sister, ${N.sib}, are not ${C.adj}.`;
+  }
+
+  if (a.tpl === 'AR') return `The ${S} whānau. ${N.me} has ${C.name}. His parents, ${N.mum} and ${N.dad}, do not. His two younger sisters, ${N.s1} and ${N.s2}, do not have it either. ${N.mum}'s brother, ${N.uncle}, ${a.uncleAff ? 'has ' + C.name : 'does not have ' + C.name}, and their parents (${N.koro} and ${N.kuia}) do not.`;
+  return `The ${S} whānau. ${N.koro} has ${C.name}; his wife ${N.kuia} does not. Of their children, ${N.mum} ${a.mumAff ? 'has it' : 'does not'}, ${N.aunt} does not, and ${N.uncle} does. ${N.mum}'s children: ${N.me} ${a.meAff ? 'has it' : 'does not'} and ${N.c1} does not. ${N.uncle} and his wife ${N.uw} (who does not) have ${N.c2}, who ${a.c2Aff ? 'has it' : 'does not'}, and ${N.c3}, who does not.`;
+}
+/* the four charts of step 1: the right one and three drawn by named slips */
+function storyOptions(a) {
+  const mode = a.tpl, plain = storyChart(a);
+  if (a.tpl === 'XLR') {
+    const car = forcedCarriers(plain, 'XLR');
+    const opts = [{ ch: storyChart(a, { dots: car }), right: true, slip: null, why: 'Right: the carriers the story forces are dotted.' }];
+    opts.push(a.auntAff || a.sibAff ? { ch: storyChart(a, { dots: car, flags: { auntAff: a.sibAff, sibAff: a.auntAff } }), slip: 'W9', why: 'The affected aunt is on the wrong side of the family.' }
+      : { ch: storyChart(a, { dots: car, flags: { pgfAff: !a.pgfAff } }), slip: 'W9', why: 'The affected grandfather is on the wrong side of the family.' });
+    opts.push({ ch: storyChart(a, { dots: car.filter(id => id !== 'mum' && id !== 'mgm' && id !== 'pgm') }), slip: 'W1', why: "A hidden carrier is drawn as not carrying: every affected boy's mum carries it." });
+    opts.push({ ch: storyChart(a, { dots: car.concat(['dad']) }), slip: 'W2', why: 'Dad is drawn as a carrier, but a male has one X: he either has it or he does not.' });
+    return opts;
+  }
+  if (a.tpl === 'AR') {
+    const car = forcedCarriers(plain, 'AR');
+    return [{ ch: storyChart(a, { dots: car }), right: true, slip: null, why: 'Right.' },
+      { ch: storyChart(a, { dots: car, flags: { uncleAff: !a.uncleAff } }), slip: 'W9', why: `${a.names.uncle} is drawn the wrong way round.` },
+      { ch: storyChart(a, { dots: car.filter(id => id !== 'dad') }), slip: 'W1', why: `${a.names.dad} married in, but he must still be a carrier: ${a.names.me} got one allele from each parent.` },
+      { ch: storyChart(a, { dots: car.concat(['s1', 's2']) }), slip: 'W8', why: 'The sisters are drawn as definite carriers, but nothing forces that: each could be AA or Aa.' }];
+  }
+  return [{ ch: storyChart(a), right: true, slip: null, why: 'Right.' },
+    { ch: storyChart(a, { flags: { meAff: !a.meAff } }), slip: 'W9', why: `${a.names.me} is drawn the wrong way round.` },
+    { ch: storyChart(a, { flags: { c2Aff: !a.c2Aff } }), slip: 'W9', why: `${a.names.c2} is drawn the wrong way round.` },
+    { ch: storyChart(a, { dots: ['aunt'] }), slip: 'W5', why: "The unaffected aunt is drawn as a carrier, but Huntington's has no carriers: unaffected means hh." }];
+}
+function storySteps(a) {
+  const N = a.names, C = a.cond, plain = storyChart(a), mode = a.tpl;
+  const tapKey = mode === 'AD' ? forcedHet(plain) : forcedCarriers(plain, mode);
+  if (!tapKey || !solve(plain, mode).possible) return null;
+  const qs = [];
+  if (mode === 'XLR') {
+    qs.push({ stem: `Will ${N.me} pass ${C.name} on to his sons?`, key: 'No: a son gets his Y chromosome, never his X, so 0%',
+      d: [{ t: 'Yes: half of his sons (50%)', slip: 'W2' }, { t: 'Yes: all of his sons', slip: 'W2' }, { t: 'Only his first son', slip: 'W6' }] });
+    qs.push({ stem: `And his daughters, if their mother is not a carrier?`, key: 'Every daughter will be a carrier, but none will be affected',
+      d: [{ t: 'None of his daughters will carry it', slip: 'W1' }, { t: 'Every daughter will be affected', slip: 'W7' }, { t: 'Half of his daughters will be affected', slip: 'W6' }] });
+  } else if (mode === 'AR') {
+    qs.push({ stem: `${N.s1} and ${N.s2} do not have ${C.name}. What would have to happen for one of them to have a child with it?`,
+      key: 'She would have to be a carrier, and so would her partner (or he would have it)', d: [{ t: 'Only her partner would need to carry it', slip: 'W1' }, { t: 'She would need to have cystic fibrosis herself', slip: 'W7' }, { t: 'Nothing: it cannot reach her children', slip: 'W8' }] });
+    qs.push({ stem: `${N.mum} and ${N.dad} are expecting another baby. What is the chance it has ${C.name}?`, key: '25%',
+      d: [{ t: 'less than 25%, because they have already had one', slip: 'W6' }, { t: '50%', slip: null }, { t: '0%', slip: 'W1' }] });
+  } else {
+    qs.push({ stem: `${N.c3} does not have ${C.name}. If she has children with a partner who does not have it either, what is the chance a child has it?`, key: '0%',
+      d: [{ t: '50%', slip: 'W5' }, { t: '25%', slip: 'W5' }, { t: '100%', slip: null }] });
+    qs.push({ stem: `${N.uncle} has ${C.name}. What is his genotype?`, key: 'Hh', d: [{ t: 'HH', slip: 'W5' }, { t: 'hh', slip: null }, { t: 'H?', slip: 'W8' }] });
+  }
+  return { tapKey: tapKey.slice().sort(), qs, plain };
+}
+DERIVE['story'] = (ch, a) => {
+  const s = storySteps(a); if (!s) return { ok: false };
+  const opts = storyOptions(a), right = opts.filter(o => o.right);
+  const sig = c => JSON.stringify(c.people.map(p => [p.id, !!p.affected, !!p.carrierShown]));
+  const uniq = new Set(opts.map(o => sig(o.ch))).size === opts.length;
+  return { ok: right.length === 1 && uniq && solve(right[0].ch, a.tpl).possible, tapKey: s.tapKey, keys: s.qs.map(q => q.key), sigs: opts.map(o => sig(o.ch)) };
+};
+function storyQ(R, o) {
+  const tpl = ['XLR', 'AR', 'AD'].includes(o.mode) ? o.mode : R.weighted([['XLR', 3], ['AR', 2], ['AD', 1]]);
+  for (let t = 0; t < 20; t++) {
+    const F = R.shuffle(NAMES_F), M = R.shuffle(NAMES_M);
+    const names = tpl === 'XLR' ? { me: M[0], dad: M[1], mum: F[0], pgf: 'Grandad', pgm: 'Nana', mgf: 'Poppa', mgm: 'Grandma', sib: F[1], aunt: F[2], uncle: M[2] }
+      : tpl === 'AR' ? { me: M[0], dad: M[1], mum: F[0], uncle: M[2], s1: F[1], s2: F[2], koro: 'Koro', kuia: 'Kuia' }
+      : { koro: 'Koro', kuia: 'Kuia', mum: F[0], dad: M[0], aunt: F[1], uncle: M[1], uw: F[2], me: F[3], c1: M[2], c2: M[3], c3: F[4] };
+    const a = { tpl, names, cond: R.pick(STORY_COND[tpl]), surname: R.pick(SURNAMES), auntAff: R.chance(0.5), sibAff: false, pgfAff: false, uncleAff: R.chance(0.5), mumAff: true, meAff: R.chance(0.5), c2Aff: R.chance(0.5) };
+    const D = DERIVE.story(null, a); if (!D.ok) continue;
+    const opts = R.shuffle(storyOptions(a)), s = storySteps(a);
+    return { type: 'story', skill: tpl === 'XLR' ? 'sexlinked' : 'pedigree', args: a, mode: tpl, story: storyText(a), chart: s.plain,
+      charts4: opts.map(x => ({ ch: x.ch, right: !!x.right, slip: x.slip, why: x.why })), tapKey: s.tapKey,
+      tapWhat: tpl === 'AD' ? 'Tap everyone who must be heterozygous (Hh).' : 'Tap everyone who must be a carrier.',
+      qs: s.qs.map(q => { const m = mcq(R, { t: q.key }, q.d, 4); return { stem: q.stem, opts: m.opts, key: m.key }; }),
+      fb: { rule: [tpl === 'XLR' ? RULE.xl : tpl === 'AR' ? RULE.rec : RULE.skip], evidence: [], glow: [], note: '' } };
+  }
+  return null;
+}
+PED_TYPES['story'] = { label: 'From a story (final cases 14 and 15)', make: storyQ, modes: ['XLR', 'AR', 'AD'] };
 
 /* make(type, R, opts): one question, or null if this mode can't give that type */
 GEN.make = function (type, R, o) {
@@ -1905,6 +2195,30 @@ function herCheck(chs, s, q, c, key, opts) {
   return { got: null, why: 'unknown check ' + c.t };
 }
 GEN.herCheck = herCheck;
+/* every other question type the engine can ask of one of her charts (§5.5), with the mode it leans on:
+   found from the chart when he could name it himself, else the mode her own question gives (as a premise) */
+function herPlan(spec, ch) {
+  const A = analyse(ch), found = foundMode(ch, A);
+  let given = null;
+  for (const q of spec.qs) for (const c of (q.blanks ? q.blanks.map(b => b.check) : [q.check])) {
+    const m = c && (c.mode || c.assume); if (['AD', 'AR', 'XLD', 'XLR'].includes(m) && !given) given = m;
+  }
+  // a chart only one mode fits (but too thin for a mode question) still gets genotype questions, with the mode stated
+  if (!given && A.P.length === 1 && ['AD', 'AR', 'XLD', 'XLR'].includes(A.P[0]) && A.poss.length === 1) given = A.P[0];
+  const mode = found || given, premise = found ? null : given ? 'mode' : null;
+  const named = ch.numbering !== 'none';
+  const plan = [['ped-read', { kinds: named ? ['females', 'males', 'affected', 'deceased', 'gens', 'gender', 'relation', 'kids'] : ['females', 'males', 'affected', 'deceased', 'gens'] }]];
+  if (!mode && A.P.length === 1 && A.P[0] === 'YL') { plan.push(['ped-mode', { mode: 'YL' }]); plan.push(['ped-cloze', { mode: 'YL' }]); }
+  if (mode && mode !== 'MT') {
+    if (found) { plan.push(['ped-mode', { mode }]); plan.push(['ped-cloze', { mode }]); }
+    if (named && mode !== 'YL') { plan.push(['ped-geno', { mode, premise }]); plan.push(['ped-next', { mode, premise }]); }
+    if (named && ['AD', 'AR', 'XLR'].includes(mode) && visible(ch).length <= 16) plan.push(['ped-all', { mode }]);
+    if (RECESSIVE[mode] && named) plan.push(['ped-pheno', { mode }]);
+    if (found && (mode === 'AD' || mode === 'AR')) { plan.push(['ped-bb', { mode }]); if (named) plan.push(['ped-chips', { mode }]); }
+  }
+  return { plan, mode, premise, found };
+}
+GEN.herPlan = herPlan;
 
 /* ── her charts are written as text tables (her-charts.js); this turns one into a chart ─────
    line: id sex gen x flags parents label…   flags: a affected, c carrier shown, d deceased, h hidden

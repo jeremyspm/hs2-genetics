@@ -208,6 +208,24 @@ section('3 generated questions', () => {
           });
           continue;
         }
+        if (type === 'ped-chips') {
+          q.groups.forEach((g, i) => {
+            const dg = D.groups.find(x => x.id === g.id);
+            const R1 = g.opts.filter(o => o.right).map(o => o.t).sort(), R2 = dg.opts.filter(o => o.right).map(o => o.t).sort();
+            ok(JSON.stringify(R1) === JSON.stringify(R2), `${tag} ${g.id}: right chips ${R1} vs ${R2}`);
+            ok(new Set(g.opts.map(o => o.t)).size === g.opts.length, `${tag} ${g.id}: duplicate chips`);
+            ok(g.multi || R1.length === 1, `${tag} ${g.id}: ${R1.length} right chips in a pick-one group`);
+            for (const o of g.opts) if (o.slip) ok(dg.opts.some(x => x.t === o.t && x.slip === o.slip && !x.right), `${tag} ${g.id}: slip ${o.slip} on "${o.t}" does not re-derive`);
+          });
+          continue;
+        }
+        if (type === 'story') {
+          ok(JSON.stringify(q.tapKey) === JSON.stringify(D.tapKey), `${tag}: carriers ${q.tapKey} vs ${D.tapKey}`);
+          ok(q.qs.every((x, i) => x.opts[x.key].t === D.keys[i]), `${tag}: a step-3 key does not re-derive`);
+          ok(q.charts4.filter(c => c.right).length === 1, `${tag}: not exactly one right chart`);
+          ok(q.charts4.every(c => D.sigs.includes(JSON.stringify(c.ch.people.map(p => [p.id, !!p.affected, !!p.carrierShown])))), `${tag}: a chart does not re-derive`);
+          continue;
+        }
         if (type === 'ped-write') { ok(JSON.stringify(q.parts) === JSON.stringify(D.parts), `${tag}: model answer does not re-derive`); continue; }
         if (type === 'ped-all') {
           q.people.forEach((p, i) => ok(p.key === D.people[i].key, `${tag} ${p.id}: ${p.key} vs ${D.people[i].key}`));
@@ -232,7 +250,7 @@ section('3 generated questions', () => {
     }
   }
   // the Punnett types: no chart, the args alone re-derive the key
-  for (const [type] of Object.entries(G.PUN_TYPES)) {
+  for (const type of Object.keys(G.PUN_TYPES).concat(Object.keys(G.KAR_TYPES))) {
     const slots = {}; let made = 0;
     for (let k = 0; k < N; k++) {
       const q = G.make(type, R, {}); if (!q) continue; made++;
@@ -276,6 +294,34 @@ section('4 calibration (her charts, her keys)', () => {
     }
   }
   console.log(`      ${n} of her keys checked`);
+});
+
+/* ─── 3b. every question type asked of her own charts (§5.5) ──────────────────────── */
+section('3b her charts, every question type', () => {
+  const R = G.rng(5151), per = QUICK ? 4 : 20;
+  let made = 0;
+  const noI = s => s.replace(/,"_i":\d+/g, '');
+  for (const s of HER) {
+    const ch = G.parseChart(s), before = noI(JSON.stringify(ch));
+    const P = G.herPlan(s, ch);
+    for (const [type, o] of P.plan) for (let k = 0; k < per; k++) {
+      const q = G.make(type, R, Object.assign({ chart: ch }, o)); if (!q) continue; made++;
+      const tag = `${s.id} ${type} #${k}`;
+      ok(q.chart === ch, `${tag}: did not use her chart`);
+      const D = G.DERIVE[type](strip(ch), q.args);
+      if (!ok(D.ok, `${tag}: re-derive says not askable`)) continue;
+      if (q.opts) {
+        const texts = q.opts.map(x => x.t);
+        ok(new Set(texts).size === texts.length, `${tag}: duplicate options`);
+        ok(D.correct(q.opts[q.key].t) && texts.filter(t => D.correct(t)).length === 1, `${tag}: key "${q.opts[q.key].t}" vs ${D.key}`);
+        for (const x of q.opts) if (x.slip) ok(D.tagged.some(y => y.t === x.t && y.slip === x.slip), `${tag}: slip ${x.slip} on "${x.t}"`);
+      }
+      if (q.blanks) q.blanks.forEach((b, i) => ok(b.opts[b.key].t === D.blanks[i].key, `${tag} blank ${i}`));
+      if (q.people) q.people.forEach((p, i) => ok(p.key === D.people[i].key, `${tag} ${p.id}`));
+    }
+    ok(noI(JSON.stringify(ch)) === before, `${s.id}: her chart was changed by a question maker`);
+  }
+  console.log(`      ${made} questions on her ${HER.length} charts`);
 });
 
 /* ─── 5. parse gate (§6.5) ───────────────────────────────────────────────────────── */

@@ -12,6 +12,24 @@ const N = +(arg('n') || 200), ONLY = arg('only');
 const BASE = process.env.BASE || 'http://127.0.0.1:8765/hs2-genetics/';
 const browser = await chromium.launch({ executablePath: CHROME });
 async function answerOne(page, info, w, d, k) {
+  const rnd = n => Math.floor(Math.random() * n);
+  if (info.chips) {
+    for (const [id, n, multi] of info.chips) {   // distinct picks: a second tap on a multi chip un-picks it
+      const picks = multi ? [...new Set(Array.from({ length: 1 + rnd(3) }, () => rnd(n)))] : [rnd(n)];
+      for (const j of picks) await page.click('[data-cg="' + id + '"][data-cj="' + j + '"]');
+    }
+    await page.click('#ckChips'); return;
+  }
+  if (info.story) {
+    if (await page.$('#drawn')) { await page.click('#drawn'); for (let i = 0; i < 5; i++) if (Math.random() < 0.7) await page.click('[data-dt="' + i + '"]'); await page.click('#drawDone'); }
+    else { await page.click('[data-c4="' + rnd(4) + '"]'); await page.click('#storyNext'); }
+    const syms = await page.$$eval('.qchart svg.ped g.ps', gs => gs.length);
+    if (!syms) bad(w + 'px story: no chart at step 2');
+    for (let j = 0; j < rnd(4); j++) { const ps = await page.$$('#cbox .ps'); await ps[rnd(ps.length)].click(); }
+    await page.click('#ckTap'); await page.click('#storyNext');
+    await page.click('[data-s3="0:' + rnd(4) + '"]'); await page.click('[data-s3="1:' + rnd(4) + '"]');
+    return;
+  }
   if (info.write) {
     await page.click('#reveal');
     for (let i = 0; i < 4; i++) if (Math.random() < 0.7) await page.click('[data-tick="' + i + '"]');
@@ -44,18 +62,19 @@ async function answerOne(page, info, w, d, k) {
     await page.click('#ckAll');
   }
 }
-const INFO = () => { const it = SIT.items[SIT.i]; const q = it.q; return { type: q.type, n: q.opts ? q.opts.length : 0, blanks: q.blanks ? q.blanks.length : 0, people: q.people ? q.people.map(p => p.id) : [], build: q.type === 'pun-build', write: q.type === 'ped-write' }; };
+const INFO = () => { const it = SIT.items[SIT.i]; const q = it.q; return { type: q.type, n: q.opts ? q.opts.length : 0, blanks: q.blanks ? q.blanks.length : 0, people: q.people ? q.people.map(p => p.id) : [], build: q.type === 'pun-build', write: q.type === 'ped-write', chips: q.type === 'ped-chips' ? q.groups.map(g => [g.id, g.opts.length, !!g.multi]) : null, story: q.type === 'story' }; };
 let fails = 0; const failLines = [];
 const bad = m => { fails++; if (failLines.length < 40) failLines.push(m); };
 for (const [w, h] of [[375, 812], [1280, 800]]) {
   const page = await browser.newPage({ viewport: { width: w, height: h } });
   const errs = []; page.on('pageerror', e => errs.push(e.message)); page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
   const drills = [];
-  for (const scr of ['ped', 'pun']) { await page.goto(BASE + '#' + scr, { waitUntil: 'networkidle' }); (await page.$$eval('[data-drill]', bs => bs.map(b => b.dataset.drill))).forEach(d => drills.push([scr, d])); }
+  for (const scr of ['ped', 'pun', 'kar', 'write']) { await page.goto(BASE + '#' + scr, { waitUntil: 'networkidle' }); (await page.$$eval('[data-drill]', bs => bs.map(b => b.dataset.drill))).forEach(d => drills.push([scr, d])); }
   for (const [scr, d] of drills) {
     if (ONLY && d !== ONLY) continue;
     const t0 = Date.now();
     await page.goto(BASE + '#' + scr, { waitUntil: 'load' });
+    if (d.startsWith('story')) await page.evaluate(() => SV('drawFirst', Math.random() < 0.4));
     await page.click(`[data-drill="${d}"]`);
     for (let k = 0; k < N; k++) {
       // a round is 10; start another from the done screen
@@ -63,7 +82,7 @@ for (const [w, h] of [[375, 812], [1280, 800]]) {
       const info = await page.evaluate(INFO);
       // every person on every chart: drawn, labelled, on screen horizontally
       const sym = await page.evaluate(() => {
-        const it = SIT.items[SIT.i], chs = it.q.charts || (it.q.chart ? [it.q.chart] : []);
+        const it = SIT.items[SIT.i], chs = it.q.type === 'story' ? [] : it.q.charts || (it.q.chart ? [it.q.chart] : []);
         const want = chs.reduce((a, c) => a + c.people.filter(p => !p.hidden).length, 0);
         const gs = [...document.querySelectorAll('.qchart svg.ped g.ps')];
         const vis = gs.filter(g => { const r = g.getBoundingClientRect(); return r.width > 8 && r.height > 8 && g.getAttribute('aria-label'); });
@@ -103,6 +122,20 @@ for (const [w, h] of [[375, 812], [1280, 800]]) {
       const st = await page.evaluate(() => ({ n: SIT.n, items: SIT.items.length, again: SIT.items.filter(x => x.again).length }));
       if (flow === 'decide' && st.again !== st.n - 10) bad(w + 'px decide: requeues ' + st.again + ' but n grew to ' + st.n);
       if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) bad(w + 'px ' + flow + ': overflow');
+    }
+    for (const hid of ['kj', 'e5', 'vic', 'ad4', 'hd', 'yl', 'wt', 'pedA', 'c5g', 'arr']) {
+      await page.goto(BASE + '#her/' + hid, { waitUntil: 'load' });
+      await page.click('[data-askher]');
+      for (let k = 0; k < 10; k++) {
+        if (await page.$('#again')) break;
+        const sym = await page.evaluate(() => { const it = SIT.items[SIT.i], ch = it.q.chart; return { want: ch.people.filter(p => !p.hidden).length, got: [...document.querySelectorAll('.qchart svg.ped g.ps')].length, same: HC[it.q.herId] === ch }; });
+        if (sym.got !== sym.want || !sym.same) bad(w + 'px her ' + hid + ' #' + k + ': ' + JSON.stringify(sym));
+        await answerOne(page, await page.evaluate(INFO), w, 'her ' + hid, k);
+        if (!(await page.$('.fb .verdict'))) bad(w + 'px her ' + hid + ' #' + k + ': no feedback');
+        await page.click('#nextQ');
+        if (errs.length) { bad(w + 'px her ' + hid + ' #' + k + ': ' + errs.join(' | ')); errs.length = 0; }
+      }
+      if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) bad(w + 'px her ' + hid + ': overflow');
     }
     await page.goto(BASE + '#prog', { waitUntil: 'load' });
     const before = await page.evaluate(() => logGet().length);
