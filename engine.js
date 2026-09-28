@@ -1786,6 +1786,47 @@ const PUN_TYPES = {
 };
 GEN.PUN_TYPES = PUN_TYPES;
 
+/* ── the written pedigree question (her student-marked SAQ, quiz 211104, 2.5 marks) ──────────
+   Her four prompts on a generated chart. The tool's model answer is built from the chart; hers is shown word for word. */
+const WRITE_PROMPTS = ['What is the mode of inheritance?', 'How can you tell?', 'What are the genotypes of the parents at the top of the chart?', 'What is the chance of those parents having another child with the disease if they had another child?'];
+GEN.WRITE_PROMPTS = WRITE_PROMPTS;
+function writeParts(ch, a) {
+  const A = analyse(ch), mode = a.mode;
+  if (foundMode(ch, A) !== mode) return null;
+  const X = prep(ch), r = A.res[mode], top = ch.couples[0];
+  const fa = X.by[X.by[top.a].sex === 'M' ? top.a : top.b], mo = X.by[X.by[top.a].sex === 'M' ? top.b : top.a];
+  if (r.sets[fa.id].length !== 1 || r.sets[mo.id].length !== 1) return null;
+  const v = coupleProb(ch, mode, fa.id, mo.id, 'child'); if (v == null || !isQuarter(v)) return null;
+  const st = { L: a.L, x: 'sup' };
+  const gF = fmtG(mode, 'M', r.sets[fa.id][0], st), gM = fmtG(mode, 'F', r.sets[mo.id][0], st);
+  const V = visible(ch), am = V.filter(p => p.affected && p.sex === 'M').length, af = V.filter(p => p.affected && p.sex === 'F').length;
+  const W = witnesses(ch, A);
+  const how = [];
+  if (DOMINANT[mode]) how.push('It is dominant: it is in every generation and never skips one (her rule 1).');
+  else { const w = W.find(x => x.k === 'skip'); how.push(w ? wText(ch, w) : 'It skips a generation, so it is recessive (her rule 1).'); }
+  const n = (k, w) => `${k} ${w}${k === 1 ? '' : 's'}`;
+  how.push(`It is likely autosomal: it affects both sexes about equally (${n(am, 'male')}, ${n(af, 'female')}), her rule 2.`);
+  const fs = W.find(x => x.k === 'father-son'); if (fs) how.push(wText(ch, fs));
+  const par = p => genoFeedback(ch, mode, p, r, st, true).evidence[0];
+  const parts = [`This is an ${MODE_NAME[mode]} disease.`, how.join(' '), `Dad (${nameOf(ch, fa.id)}): ${par(fa)} Mum (${nameOf(ch, mo.id)}): ${par(mo)}`,
+    `A Punnett square of ${gF} × ${gM} shows a ${pct(v)} chance that another child would have the disease.`];
+  return { parts, fa: fa.id, mo: mo.id, gF, gM, v, square: { fam: 'auto', f: gF, m: gM } };
+}
+DERIVE['ped-write'] = (ch, a) => { const w = writeParts(ch, a); return w ? Object.assign({ ok: true }, w) : { ok: false }; };
+function writeQ(R, o) {
+  const mode = o.mode === 'AR' || o.mode === 'AD' ? o.mode : R.pick(['AD', 'AD', 'AR']);
+  for (let t = 0; t < 80; t++) {
+    const ch = genChart(R, mode, { numbering: 'roman', gens: R.pick([3, 3, 4]) });
+    if (!ch) continue;
+    const args = { mode, L: R.pick(['B', 'A', 'D', 'H', 'E']) };
+    const w = writeParts(ch, args); if (!w) continue;
+    return { type: 'ped-write', skill: 'pedigree', chart: ch, mode, args, stem: 'Look at the following pedigree chart.', prompts: WRITE_PROMPTS, parts: w.parts, square: w.square,
+      glowTop: [w.fa, w.mo], fb: { rule: [RULE.skip, RULE.sex, RULE.rec], evidence: [], glow: [w.fa, w.mo], note: '' } };
+  }
+  return null;
+}
+PED_TYPES['ped-write'] = { label: 'Write it (her 4-part SAQ)', make: writeQ, modes: ['AD', 'AR'] };
+
 /* make(type, R, opts): one question, or null if this mode can't give that type */
 GEN.make = function (type, R, o) {
   const T = PED_TYPES[type] || (GEN.PUN_TYPES && GEN.PUN_TYPES[type]) || (GEN.KAR_TYPES && GEN.KAR_TYPES[type]);

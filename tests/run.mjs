@@ -208,6 +208,7 @@ section('3 generated questions', () => {
           });
           continue;
         }
+        if (type === 'ped-write') { ok(JSON.stringify(q.parts) === JSON.stringify(D.parts), `${tag}: model answer does not re-derive`); continue; }
         if (type === 'ped-all') {
           q.people.forEach((p, i) => ok(p.key === D.people[i].key, `${tag} ${p.id}: ${p.key} vs ${D.people[i].key}`));
           continue;

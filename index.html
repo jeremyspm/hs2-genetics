@@ -213,6 +213,19 @@ figure.fig figcaption{font-size:.76rem;color:var(--muted-fg);margin:5px 2px 0}
 .bslot{border-color:var(--primary);color:var(--primary)}
 .bslot.set,.bcell.set{border-style:solid}
 .bslot.k,.bcell.k{border:2px solid var(--ok)} .bslot.x,.bcell.x{border:2px solid var(--danger)}
+.qhead .timer{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--muted-fg);font-weight:700}
+.qhead .timer.low{color:var(--danger)}
+.why{margin:0 0 6px;color:var(--primary)}
+.saved{margin:10px 0 0;color:var(--ok)}
+.wprompts{margin:4px 0 10px;padding-left:1.4em;font-weight:600;line-height:1.5}
+.wmodel{margin:10px 0}
+.wpart{display:block;width:100%;text-align:left;font:inherit;font-size:.9rem;line-height:1.5;color:var(--fg);background:var(--muted);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin:6px 0;cursor:pointer;min-height:44px}
+.wpart.on{border-color:var(--ok);box-shadow:inset 0 0 0 1px var(--ok)}
+.wpart.on::before{content:'✓ ';color:var(--ok);font-weight:800}
+.herans p{font-size:.88rem;margin:.3rem 0;line-height:1.5;border-left:3px solid var(--warn);padding-left:8px}
+.sliprow>span:first-child{flex:1 1 auto;min-width:0}
+.sliprow .num{text-align:right;flex:0 0 auto;max-width:48%}
+.sliprow .num.ok{color:var(--ok);font-weight:700}
 .sliprow{display:flex;justify-content:space-between;gap:8px;font-size:.86rem;padding:5px 0;border-bottom:1px dashed var(--border)}
 </style>
 </head>
@@ -352,7 +365,8 @@ const PED_ROWS = [
   ['ped-ab', '🅰️', 'A or B', 'Two charts: which one is dominant (or recessive)?'],
   ['ped-pheno', '🙂', 'Phenotype of a carrier', 'What you SEE is normal'],
   ['ped-bb', '🎨', 'Which coloured shape is the bb?', 'Her revision deck, slides 59 and 79'],
-  ['ped-mt', '🧫', 'Mitochondrial', 'From a chart: who passes mtDNA on?']
+  ['ped-mt', '🧫', 'Mitochondrial', 'From a chart: who passes mtDNA on?'],
+  ['ped-write', '✍️', 'Write it: her 4-part SAQ', 'Mode, how you can tell, the top parents, the chance; then mark yourself']
 ];
 const PUN_ROWS = [
   ['pun-build', '▦', 'Build the square', 'Tap the gametes onto the top and side, then fill every box'],
@@ -410,9 +424,12 @@ function startSit(title, next, n) {
   nav('sit');
 }
 function addItem() {
-  const q = SIT.next(SIT.items.length);
+  SIT.pending = SIT.pending || []; SIT.fresh = SIT.fresh || 0;
+  const due = SIT.pending.findIndex(p => p.at <= SIT.items.length);
+  let q, again = false;
+  if (due >= 0) { q = SIT.pending.splice(due, 1)[0].q; again = true; } else { q = SIT.next(SIT.fresh); SIT.fresh++; }
   if (!q) return false;
-  SIT.items.push({ q, st: { pick: null, done: false, taps: [], blanks: q.blanks ? q.blanks.map(() => null) : null, open: null, marks: {}, focus: null,
+  SIT.items.push({ q, again, st: { pick: null, done: false, taps: [], blanks: q.blanks ? q.blanks.map(() => null) : null, open: null, marks: {}, focus: null,
     top: [null, null], side: [null, null], cells: [[null, null], [null, null]], chip: null } });
   return true;
 }
@@ -434,7 +451,8 @@ function chartHTML(it) {
   } else if (q.type === 'ped-mode' && st.ev) {
     o.sel = st.taps;
     if (st.ev === 'checked') o.glow = st.evGlow;
-  } else if (st.done) o.glow = q.fb.glow;
+  } else if (q.type === 'ped-write') { if (st.rev) o.glow = q.glowTop; }
+  else if (st.done && !hideFb()) o.glow = q.fb.glow;
   let cap = '';
   if (q.chart.shadingMeans === 'dominant-phenotype') cap = 'Shaded = the dominant phenotype';
   if (q.chart.shadingMeans === 'homozygous-recessive') cap = 'Shaded = a homozygous recessive genotype';
@@ -473,7 +491,7 @@ function optsHTML(it) {
   const { q, st } = it;
   return q.opts.map((o, i) => {
     let c = 'opt';
-    if (st.done) { c += ' lock'; if (i === q.key) c += ' k'; else if (i === st.pick) c += ' x'; }
+    if (st.done) { c += ' lock'; if (hideFb()) { if (i === st.pick) c += ' sel'; } else if (i === q.key) c += ' k'; else if (i === st.pick) c += ' x'; }
     return `<button class="${c}" data-o="${i}"${st.done ? ' tabindex="-1"' : ''}><span class="okey">${i + 1}</span><span>${esc(o.t)}</span></button>`;
   }).join('');
 }
@@ -485,13 +503,13 @@ function clozeHTML(it) {
     if (k % 2 === 0) { h += esc(parts[k]); continue; }
     const i = +parts[k], b = q.blanks[i], v = st.blanks[i];
     let c = 'ddb' + (v != null ? ' set' : '') + (st.open === i ? ' open' : '');
-    if (st.done) c += v === b.key ? ' k' : ' x';
+    if (st.done && !hideFb()) c += v === b.key ? ' k' : ' x';
     h += `<button class="${c}" data-b="${i}">${v != null ? esc(b.opts[v].t) : 'choose ▾'}</button>`;
   }
   let panel = '';
   if (st.open != null && !st.done) panel = `<div class="ddp">${q.blanks[st.open].opts.map((o, j) => `<button class="ddo" data-bo="${j}">${esc(o.t)}</button>`).join('')}</div>`;
   let fix = '';
-  if (st.done) fix = q.blanks.map((b, i) => st.blanks[i] !== b.key ? `<div class="ddfix">Blank ${i + 1}: <b>${esc(b.opts[b.key].t)}</b></div>` : '').join('');
+  if (st.done && !hideFb()) fix = q.blanks.map((b, i) => st.blanks[i] !== b.key ? `<div class="ddfix">Blank ${i + 1}: <b>${esc(b.opts[b.key].t)}</b></div>` : '').join('');
   const ready = st.blanks.every(v => v != null);
   return `<div class="cloze">${h}</div>${panel}${fix}${st.done ? '' : `<button class="btn primary wide" id="ckCloze"${ready ? '' : ' disabled'}>Check</button>`}`;
 }
@@ -510,6 +528,8 @@ function words(s) { return String(s).split(/\s+/).filter(Boolean).length; }
 function fbHTML(it) {
   const { q, st } = it;
   if (!st.done) return '';
+  if (hideFb()) return '<div class="meta saved">✓ Answer saved. Feedback comes at the end.</div>';
+  if (q.type === 'ped-write') return '';
   const S = GEN.SLIPS;
   const keyText = q.opts ? q.opts[q.key].t : null;
   const parts = [];
@@ -560,20 +580,27 @@ function sitView() {
   else if (q.type === 'ped-cloze') body += clozeHTML(it);
   else if (q.type === 'ped-all') body = stemHTML(q) + allHTML(it);
   else if (q.type === 'pun-build') body += buildHTML(it);
+  else if (q.type === 'ped-write') body += writeHTML(it);
+  if (it.again && !hideFb()) body = '<div class="meta why">↻ Back again: you missed this one 3 questions ago.</div>' + body;
+  else if (q.why && !it.again) body = `<div class="meta why">Why this one: ${esc(q.why)}</div>` + body;
   body += fbHTML(it);
   const fig = figHTML(it);
   const pips = SIT.items.map((x, i) => `<span class="pip${i === SIT.i ? ' cur' : ''}${x.st.done ? (x.st.ok ? ' ok' : ' bad') : ''}"></span>`).join('') + Array.from({ length: Math.max(0, SIT.n - SIT.items.length) }, () => '<span class="pip"></span>').join('');
-  return `<div class="qhead"><button class="btn ghost" id="leave" style="padding:5px 11px">‹ Leave</button><span class="n">${SIT.i + 1} / ${SIT.n}</span><span class="ty">${esc(SIT.title)}${SIT.title !== lab ? ' · ' + esc(lab) : ''}</span></div>
+  return `<div class="qhead"><button class="btn ghost" id="leave" style="padding:5px 11px">‹ Leave</button><span class="n">${SIT.i + 1} / ${SIT.n}</span><span class="ty">${esc(SIT.title)}${SIT.title !== lab ? ' · ' + esc(lab) : ''}</span>${SIT.test && !SIT.review ? '<span class="timer" id="timer"></span>' : ''}</div>
     ${fig ? `<div class="qgrid"><div class="qchart">${fig}</div><div class="qbody card">${body}</div></div>` : `<div class="qbody card solo">${body}</div>`}
     <div class="pips" aria-hidden="true">${pips}</div>`;
 }
 function doneView() {
   const xs = SIT.items.filter(x => x.st.done), right = xs.filter(x => x.st.ok).length;
-  const slips = {}; xs.filter(x => !x.st.ok).forEach(x => slips[x.st.slip] = (slips[x.st.slip] || 0) + 1);
-  const rows = Object.entries(slips).sort((a, b) => b[1] - a[1]).map(([k, n]) => `<div class="sliprow"><span><b>${k}</b> ${esc(GEN.SLIPS[k].name)}</span><span>${n} miss${n > 1 ? 'es' : ''}</span></div>`).join('');
-  return `<div class="card done"><div class="big">${right} / ${xs.length}</div><p class="meta">${esc(SIT.title)}</p></div>
+  const slips = {}; xs.filter(x => !x.st.ok && x.st.slip).forEach(x => slips[x.st.slip] = (slips[x.st.slip] || 0) + 1);
+  const selfMarked = xs.filter(x => !x.st.ok && !x.st.slip).length;   // a written answer marked short by yourself carries no slip
+  const rows = Object.entries(slips).sort((a, b) => b[1] - a[1]).map(([k, n]) => `<div class="sliprow"><span><b>${k}</b> ${esc(GEN.SLIPS[k].name)}</span><span>${n} miss${n > 1 ? 'es' : ''}</span></div>`).join('')
+    + (selfMarked ? `<div class="sliprow"><span>✍️ Written answer, marked short by you</span><span>${selfMarked}</span></div>` : '');
+  const tot = SIT.test ? SIT.n : xs.length;
+  return `<div class="card done"><div class="big">${right} / ${tot}</div><p class="meta">${esc(SIT.title)}${SIT.timeUp ? ' · time ran out' : ''}${SIT.test ? ' · at her pace, 1 min 45 s a question' : ''}</p></div>
     ${rows ? `<div class="card"><b>Where the misses came from</b>${rows}</div>` : '<div class="card"><b>No misses this round.</b></div>'}
-    <button class="btn primary wide" id="again">Another round</button><button class="btn ghost wide" data-nav="">‹ Home</button>`;
+    ${SIT.test && !SIT.review ? '<button class="btn primary wide" id="review">Review my answers with feedback</button>' : ''}
+    <button class="btn ${SIT.test && !SIT.review ? '' : 'primary '}wide" id="again">${SIT.test ? 'Another set' : 'Another round'}</button><button class="btn ghost wide" data-nav="">‹ Home</button>`;
 }
 function paintSit() {
   const main = $('#view');
@@ -585,11 +612,16 @@ function paintSit() {
   fb.innerHTML = `<button class="btn" id="prevQ"${SIT.i ? '' : ' disabled'}>‹ Back</button><button class="btn primary" id="nextQ"${it && it.st.done ? '' : ' disabled'}>${SIT.i + 1 >= SIT.n ? 'Finish' : 'Next ›'}</button>`;
   fb.classList.add('on');
 }
+/* Decide for me: a miss comes back 3 questions later (once), fresh state */
+function afterAnswer(it) {
+  if (!SIT.decide || it.st.ok || it.again || SIT.n >= 15) return;
+  SIT.pending.push({ at: SIT.i + 3, q: it.q }); SIT.n++;
+}
 function answer(i) {
   const it = cur(); if (!it || it.st.done) return;
   const { q, st } = it;
   st.pick = i; st.done = true; st.ok = i === q.key; st.slip = st.ok ? null : (q.opts[i].slip || 'W9'); st.tagged = !!q.opts[i].slip;
-  record(q, st.ok, st.slip);
+  record(q, st.ok, st.slip); afterAnswer(it);
   paintSit();
 }
 function nextQ() {
@@ -608,6 +640,9 @@ function copyText(it) {
     lines.push('Question: ' + q.stem.replace(/\[(\d)\]/g, (m, i) => '[' + q.blanks[i].opts.map(o => o.t).join(' / ') + ']'));
     lines.push('My answers: ' + st.blanks.map((v, i) => v == null ? '(blank)' : q.blanks[i].opts[v].t).join(' | '));
     lines.push('Key: ' + q.blanks.map(b => b.opts[b.key].t).join(' | '));
+  } else if (q.type === 'ped-write') {
+    lines.push('Question: ' + q.stem + ' ' + q.prompts.map((p, i) => (i + 1) + '. ' + p).join(' '));
+    lines.push('Model answer: ' + q.parts.join(' '));
   } else if (q.type === 'pun-build') {
     lines.push('Question: ' + q.stem);
     lines.push('Right square: ' + JSON.stringify(q.P.cells) + '   Mine: top ' + st.top.join(',') + ' side ' + st.side.join(',') + ' boxes ' + JSON.stringify(st.cells));
@@ -677,16 +712,151 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && st.done && !(document.activeElement && document.activeElement.tagName === 'BUTTON')) { e.preventDefault(); nextQ(); }
 });
 
+/* ── her focus rows, and what feeds each (§5.1 readiness) ─────────────────────────────── */
+const SKILLS = [
+  { id: 'pedigree', t: 'Reading pedigree charts', crit: 'Genetics 6' },
+  { id: 'crosses', t: 'Punnett squares and probabilities', crit: 'Genetics 7' },
+  { id: 'sexlinked', t: 'Sex-linked inheritance', crit: 'Genetics 4' },
+  { id: 'abo', t: 'ABO blood groups', crit: 'Genetics 5' },
+  { id: 'patterns', t: 'Incomplete dominance, codominance, polygenic', crit: 'Genetics 5' },
+  { id: 'mito', t: 'Mitochondrial inheritance', crit: 'Genetics 5' },
+  { id: 'karyotype', t: 'Karyotypes', crit: 'Genetics 2', later: true }
+];
+const SKILL_SRC = {
+  pedigree: [['ped-mode', { mode: 'AD' }], ['ped-mode', { mode: 'AR' }], ['ped-geno', {}], ['ped-next', {}], ['ped-cloze', {}], ['ped-read', {}], ['ped-all', {}], ['ped-geno2', {}], ['ped-ab', {}], ['ped-bb', {}]],
+  crosses: [['pun-fwd'], ['pun-back'], ['pun-test'], ['pun-read'], ['pun-spot'], ['pun-indep'], ['pun-build']],
+  sexlinked: [['ped-mode', { mode: 'XLR' }], ['ped-geno', { mode: 'XLR' }], ['ped-next', { mode: 'XLR' }], ['pun-xl'], ['ped-pheno', { mode: 'XLR' }], ['ped-mode', { mode: 'YL' }]],
+  abo: [['pun-abo']], patterns: [['pun-pat']], mito: [['ped-mt']]
+};
+const SLIP_SRC = {
+  W1: [['ped-geno', { mode: 'AR', premise: 'mode' }], ['ped-geno2'], ['ped-next', { mode: 'AR' }], ['pun-fwd'], ['pun-xl'], ['pun-abo']],
+  W2: [['ped-mode', { mode: 'XLR' }], ['ped-mode', { mode: 'AD' }], ['ped-cloze', { mode: 'AD' }], ['ped-geno', { mode: 'XLR' }], ['pun-xl']],
+  W3: [['pun-back'], ['pun-test'], ['pun-abo']],
+  W4: [['ped-mode', { mode: 'AR' }], ['ped-cloze', { mode: 'AR' }]],
+  W5: [['ped-geno', { mode: 'AD' }], ['ped-next', { mode: 'AD' }], ['ped-bb', { mode: 'AD' }], ['ped-all', { mode: 'AD' }]],
+  W6: [['ped-next', { mode: 'XLR' }], ['pun-xl'], ['pun-indep']],
+  W7: [['ped-pheno'], ['pun-read'], ['pun-fwd'], ['pun-build']],
+  W8: [['ped-geno', {}], ['ped-all', { mode: 'AR' }], ['ped-bb', {}]],
+  W9: [['ped-read'], ['ped-ab']]
+};
+/* every tally is read off the log, so undo and reset are exact */
+function stats(log) {
+  log = log || logGet();
+  const slips = {};
+  Object.keys(GEN.SLIPS).forEach(k => slips[k] = { miss: 0, recentMiss: 0, offered: 0, recent: [] });
+  log.forEach((e, i) => {
+    if (e.sl && slips[e.sl]) { slips[e.sl].miss++; if (i >= log.length - 100) slips[e.sl].recentMiss++; }
+    (e.on || []).forEach(k => { if (slips[k]) { slips[k].offered++; slips[k].recent.push(e.ok && !e.h ? 1 : 0); } });
+  });
+  Object.values(slips).forEach(s => { s.recent = s.recent.slice(-20); s.acc = s.recent.length ? s.recent.reduce((a, b) => a + b, 0) / s.recent.length : null; });
+  const skills = {};
+  SKILLS.forEach(sk => {
+    const xs = log.filter(e => e.sk === sk.id);
+    let streak = 0; const days = new Set();
+    for (let i = xs.length - 1; i >= 0 && xs[i].ok && !xs[i].h; i--) { streak++; days.add(xs[i].d); }
+    const last20 = xs.slice(-20);
+    skills[sk.id] = { seen: xs.length, right: xs.filter(e => e.ok).length, streak, days: days.size, mastered: streak >= 3 && days.size >= 2,
+      acc: last20.length ? last20.filter(e => e.ok).length / last20.length : null, last: xs.length ? xs[xs.length - 1].t : 0 };
+  });
+  return { slips, skills, n: log.length };
+}
+function topSlip(S) {
+  const xs = Object.entries(S.slips).filter(([, s]) => s.recentMiss > 0).sort((a, b) => b[1].recentMiss - a[1].recentMiss);
+  return xs.length ? xs[0][0] : null;
+}
+/* one question from a spec [type, opts], optionally insisting that a slip be on offer */
+function fromSpec(spec, needSlip) {
+  let q = null;
+  for (let t = 0; t < 6; t++) { q = makeQ(spec[0], spec[1] || {}); if (q && (!needSlip || slipsOffered(q).includes(needSlip))) return q; }
+  return q;
+}
+/* Decide for me (§5.1): 10 at a time; 60% the most-missed slip, 25% the least-seen skills, 15% review; a miss comes back 3 later */
+function planDecide() {
+  const log = logGet(), S = stats(log), R = GEN.rng((Math.random() * 2 ** 31) | 0), top = topSlip(S);
+  const live = SKILLS.filter(s => !s.later);
+  const least = live.slice().sort((a, b) => S.skills[a.id].seen - S.skills[b.id].seen || S.skills[a.id].last - S.skills[b.id].last);
+  const missed = log.filter(e => !e.ok).map(e => e.ty).filter(t => GEN.PED_TYPES[t] || GEN.PUN_TYPES[t]);
+  const plan = [];
+  if (top) {
+    for (let i = 0; i < 6; i++) plan.push({ spec: R.pick(SLIP_SRC[top]), slip: top, why: `your most-missed slip, ${top} ${GEN.SLIPS[top].name}` });
+    for (let i = 0; i < 3; i++) { const sk = least[i % 3]; plan.push({ spec: R.pick(SKILL_SRC[sk.id]), why: `least seen: ${sk.t}` }); }
+    plan.push(missed.length ? { spec: [R.pick(missed.slice(-20))], why: 'review: a shape you missed before' } : { spec: R.pick(SKILL_SRC[least[0].id]), why: 'least seen' });
+  } else {
+    // no misses yet: deal evenly across her rows, weighted towards pedigree (her "WILL BE TESTED")
+    const order = ['pedigree', 'pedigree', 'crosses', 'pedigree', 'sexlinked', 'crosses', 'pedigree', 'abo', 'patterns', 'mito'];
+    order.forEach(id => plan.push({ spec: R.pick(SKILL_SRC[id]), why: 'dealing evenly: no misses yet' }));
+  }
+  return R.shuffle(plan);
+}
+function startDecide() {
+  const plan = planDecide();
+  startSit('Decide for me', k => { const p = plan[k]; if (!p) return null; const q = fromSpec(p.spec, p.slip); if (q) q.why = p.why; return q; }, 10);
+  SIT.decide = true;
+}
+/* the Test 3 genetics set (§5.9): 12 mixed items in her shapes, her pace (65 min / 37 Q), one written, scored by slip */
+const SET_SPECS = [['ped-mode', {}], ['ped-mode', {}], ['ped-geno', {}], ['ped-next', {}], ['ped-cloze', {}], ['ped-read', {}], ['ped-geno2'], ['pun-fwd'], ['pun-back'], ['pun-xl'], ['pun-abo'], ['pun-pat']];
+function startSet() {
+  const R = GEN.rng((Math.random() * 2 ** 31) | 0);
+  const plan = R.shuffle(SET_SPECS).slice(0, 11).concat([['ped-write', {}]]);
+  startSit('Test 3 genetics set', k => plan[k] ? fromSpec(plan[k]) : null, 12);
+  SIT.test = true; SIT.deadline = Date.now() + 12 * 105e3;
+}
+setInterval(() => {
+  if (!SIT || !SIT.test || SIT.fin || SIT.review || route() !== 'sit') return;
+  const left = SIT.deadline - Date.now(), el = $('#timer');
+  if (left <= 0) { SIT.fin = true; SIT.timeUp = true; paintSit(); return; }
+  if (el) { const m = Math.floor(left / 60e3), s = Math.floor(left / 1e3) % 60; el.textContent = `${m}:${String(s).padStart(2, '0')} left`; el.classList.toggle('low', left < 120e3); }
+}, 1000);
+const hideFb = () => SIT && SIT.test && !SIT.review;
+
+/* the written item: write it, then reveal the tool's answer and hers, then mark yourself */
+const HER_SAQ = (HER.find(s => s.id === 'saq').qs[0] || {}).written || [];
+function writeHTML(it) {
+  const { q, st } = it;
+  let h = `<ol class="wprompts">${q.prompts.map(p => `<li>${esc(p)}</li>`).join('')}</ol>`;
+  if (!st.rev) return h + `<p class="meta">Write your answer on paper (or say it out loud), then reveal the model answer and mark yourself.</p><button class="btn primary wide" id="reveal">Reveal the model answer</button>`;
+  h += `<div class="wmodel"><div class="meta"><span class="tagl tool">this tool's answer</span>for this chart; tick each part you got</div>
+    ${q.parts.map((p, i) => `<button class="wpart${st.ticks && st.ticks[i] ? ' on' : ''}" data-tick="${i}"${st.done ? ' disabled' : ''}><b>${i + 1}.</b> ${esc(p)}</button>`).join('')}
+    ${squareHTML(q.square)}</div>
+    <details class="how"><summary>Her model answer, word for word (her written SAQ, quiz 211104)</summary><div class="herans">${HER_SAQ.map(t => `<p>${esc(t)}</p>`).join('')}</div></details>`;
+  if (!st.done) h += `<button class="btn primary wide" id="markDone">Done marking</button>`;
+  else h += `<p class="meta">${st.ticks.filter(Boolean).length} of 4 parts. Her marking gives half a mark per fact; "How can you tell?" carries marks of its own.</p>`;
+  return h;
+}
+
+/* ── progress screen ────────────────────────────────────────────────────────────────── */
+function progView() {
+  const S = stats(), log = logGet();
+  const slipRows = Object.entries(GEN.SLIPS).map(([k, s]) => { const x = S.slips[k];
+    return `<div class="sliprow"><span><b>${k}</b> ${esc(s.name)}<br><small class="meta">${esc(s.what)}</small></span><span class="num">${x.miss} miss${x.miss === 1 ? '' : 'es'}<br><small class="meta">${x.acc == null ? 'not met yet' : Math.round(x.acc * 100) + '% right lately'}</small></span></div>`; }).join('');
+  const skRows = SKILLS.map(sk => { const x = S.skills[sk.id];
+    const state = sk.later ? 'comes in the next build' : x.mastered ? '✓ mastered' : x.seen ? `${x.streak} in a row · ${Math.round(x.acc * 100)}% lately` : 'not started';
+    return `<div class="sliprow"><span>${esc(sk.t)}<br><small class="meta">her ${esc(sk.crit)}</small></span><span class="num${x.mastered ? ' ok' : ''}">${state}</span></div>`; }).join('');
+  return `<div class="shead"><button class="btn ghost" data-nav="">‹ Home</button><h2>📊 Slips and readiness</h2></div>
+    ${log.length ? '' : '<div class="note">Nothing answered yet in this browser, so every count below is zero. Answer a few and it fills in.</div>'}
+    <div class="card"><b>Ready for Test 3?</b><p class="lead">One row per focus row of hers. Mastered means 3 right in a row, with no hints, across at least 2 days.</p>${skRows}</div>
+    <div class="card"><b>Your slips</b><p class="lead">A miss counts against the slip that produces the option you picked. A miss on an option with no named slip counts as W9.</p>${slipRows}</div>
+    <div class="card"><b>${log.length} answers saved in this browser</b>
+      <button class="btn wide" id="undoLast"${log.length ? '' : ' disabled'}>↶ Undo my last answer</button>
+      <button class="btn ghost wide" id="resetAll"${log.length ? '' : ' disabled'}>Reset all progress</button>
+      <p class="meta">Progress lives only in this browser (key <code>hs2gen.log</code>), no account and no cloud.</p></div>`;
+}
+
 /* ── home ───────────────────────────────────────────────────────────────────────────── */
 function homeView() {
-  const n = HER.reduce((a, s) => a + s.qs.length, 0), log = logGet();
+  const n = HER.reduce((a, x) => a + x.qs.length, 0), log = logGet(), S = stats(log), top = topSlip(S);
+  const live = SKILLS.filter(k => !k.later), mast = live.filter(k => S.skills[k.id].mastered).length;
+  const slipsLine = Object.entries(S.slips).filter(([, x]) => x.miss).sort((a, b) => b[1].miss - a[1].miss).slice(0, 3).map(([k, x]) => k + ' ×' + x.miss).join(' · ');
   return `${idCard()}
-    <div class="lsec">Practise</div>
-    <button class="lrow" data-nav="ped"><span class="lic">🌳</span><span class="ltx"><b>Pedigree drills</b><small>${log.filter(e => e.sk === 'pedigree' || e.sk === 'sexlinked' || e.sk === 'mito').length} answered so far · 11 question shapes</small></span><span class="lch">›</span></button>
-    <button class="lrow" data-nav="pun"><span class="lic">▦</span><span class="ltx"><b>Punnett squares</b><small>${log.filter(e => /^pun/.test(e.ty)).length} answered so far · 10 question shapes</small></span><span class="lch">›</span></button>
-    <div class="lsec">Look at her charts</div>
-    <button class="lrow" data-nav="her"><span class="lic">🖼️</span><span class="ltx"><b>Her charts</b><small>${HER_GROUPS.length} figures from her bank, redrawn, with her ${n} questions</small></span><span class="lch">›</span></button>
-    <div class="note">Build in progress (P3): Punnett squares, the two doors and the Test 3 set come next. Only what works today is shown.</div>`;
+    <button class="hero" data-go="decide"><span><small>${top ? 'Next up · aimed at your most-missed slip, ' + top + ' ' + esc(GEN.SLIPS[top].name) : 'Next up · no misses yet, so Decide for me is dealing evenly'}</small><b>🧭 Decide for me: 10 at a time</b></span><span class="go">›</span></button>
+    <div class="lsec">Practise: I know what I want</div>
+    <button class="lrow" data-nav="ped"><span class="lic">🌳</span><span class="ltx"><b>Pedigree drills</b><small>${log.filter(e => /^ped/.test(e.ty)).length} answered · 12 question shapes</small></span><span class="lch">›</span></button>
+    <button class="lrow" data-nav="pun"><span class="lic">▦</span><span class="ltx"><b>Punnett squares</b><small>${log.filter(e => /^pun/.test(e.ty)).length} answered · 10 question shapes</small></span><span class="lch">›</span></button>
+    <div class="lsec">Test yourself</div>
+    <button class="lrow" data-go="set"><span class="lic">⏱</span><span class="ltx"><b>Test 3 genetics set</b><small>12 items in her shapes · 21 min (her pace) · 1 written</small></span><span class="lch">›</span></button>
+    <div class="lsec">Plan</div>
+    <button class="lrow" data-nav="prog"><span class="lic">📊</span><span class="ltx"><b>Slips and readiness</b><small>${log.length ? mast + ' of ' + live.length + ' rows mastered' + (slipsLine ? ' · ' + slipsLine : ' · no misses yet') : 'nothing answered yet'}</small></span><span class="lch">›</span></button>
+    <button class="lrow" data-nav="her"><span class="lic">🖼️</span><span class="ltx"><b>Her charts</b><small>${HER_GROUPS.length} figures from her bank, redrawn, with her ${n} questions</small></span><span class="lch">›</span></button>`;
 }
 
 /* ── routing ────────────────────────────────────────────────────────────────────────── */
@@ -704,18 +874,23 @@ function render() {
   else if (a === 'her') main.innerHTML = herList();
   else if (a === 'ped') main.innerHTML = pedList();
   else if (a === 'pun') main.innerHTML = punList();
+  else if (a === 'prog') main.innerHTML = progView();
   else main.innerHTML = homeView();
-  document.title = a === 'her' ? 'Her charts · HS2 Genetics' : a === 'ped' ? 'Pedigree drills · HS2 Genetics' : a === 'pun' ? 'Punnett squares · HS2 Genetics' : 'HS2 Genetics · Trainer';
+  document.title = a === 'her' ? 'Her charts · HS2 Genetics' : a === 'ped' ? 'Pedigree drills · HS2 Genetics' : a === 'pun' ? 'Punnett squares · HS2 Genetics' : a === 'prog' ? 'Slips and readiness · HS2 Genetics' : 'HS2 Genetics · Trainer';
 }
 document.addEventListener('click', e => {
   const t = e.target;
   const n = t.closest('[data-nav]'); if (n) { nav(n.dataset.nav); return; }
   const h = t.closest('[data-her]'); if (h) { nav('her/' + h.dataset.her); return; }
+  const go = t.closest('[data-go]'); if (go) { if (go.dataset.go === 'decide') startDecide(); else startSet(); return; }
+  if (t.closest('#undoLast')) { const l = logGet(); l.pop(); SV('log', l); render(); return; }
+  if (t.closest('#resetAll')) { if (confirm('Reset all progress in this browser? Your slips, streaks and history go.')) { SV('log', []); render(); } return; }
   const d = t.closest('[data-drill]'); if (d) { const ty = d.dataset.drill; startSit(ty === 'mixed' ? 'Mixed pedigree round' : ty === 'mixedPun' ? 'Mixed Punnett round' : TYPE_LABEL[ty], () => makeQ(ty)); return; }
   if (route() !== 'sit' || !SIT) return;
   const it = cur();
-  if (t.closest('#leave')) { SIT = null; nav(''); return; }
-  if (t.closest('#again')) { const nx = SIT.next, ti = SIT.title; SIT = null; history.replaceState(null, '', location.pathname); startSit(ti, nx); return; }
+  if (t.closest('#leave')) { if (SIT.test && !SIT.fin && !SIT.review && SIT.items.some(x => x.st.done) && !confirm('Stop this set? Nothing is scored.')) return; SIT = null; nav(''); return; }
+  if (t.closest('#review')) { SIT.review = true; SIT.fin = false; SIT.i = 0; paintSit(); window.scrollTo(0, 0); return; }
+  if (t.closest('#again')) { const wasSet = SIT.test, wasDec = SIT.decide, nx = SIT.next, ti = SIT.title; SIT = null; history.replaceState(null, '', location.pathname); if (wasSet) startSet(); else if (wasDec) startDecide(); else startSit(ti, nx); return; }
   if (t.closest('#nextQ')) { nextQ(); return; }
   if (t.closest('#prevQ')) { if (SIT.i) { SIT.i--; paintSit(); } return; }
   if (!it) return;
@@ -726,7 +901,7 @@ document.addEventListener('click', e => {
   if (t.closest('#ckCloze')) {
     st.done = true; const wrong = q.blanks.findIndex((bl, i) => st.blanks[i] !== bl.key);
     st.ok = wrong < 0; st.slip = st.ok ? null : (q.blanks[wrong].opts[st.blanks[wrong]].slip || 'W9'); st.tagged = !st.ok && !!q.blanks[wrong].opts[st.blanks[wrong]].slip; st.open = null;
-    record(q, st.ok, st.slip); paintSit(); return;
+    record(q, st.ok, st.slip); afterAnswer(it); paintSit(); return;
   }
   if (t.closest('#ckAll')) {
     st.done = true;
@@ -736,7 +911,7 @@ document.addEventListener('click', e => {
     const w0 = wrong.find(p => st.marks[p.id] != null);
     const sl0 = w0 && GEN.allSlip(q.mode, by[w0.id], w0.set, w0.cycle[st.marks[w0.id]], sty);
     st.slip = st.ok ? null : sl0 || 'W9'; st.tagged = !!sl0;
-    record(q, st.ok, st.slip); paintSit(); return;
+    record(q, st.ok, st.slip); afterAnswer(it); paintSit(); return;
   }
   const chip = t.closest('[data-chip]'); if (chip && !st.done) { st.chip = st.chip === chip.dataset.chip ? null : chip.dataset.chip; st.msg = ''; paintSit(); return; }
   const sl = t.closest('[data-slot]'); if (sl && !st.done) {
@@ -759,8 +934,11 @@ document.addEventListener('click', e => {
     const cellsOK = st.cells.every((r, i) => r.every((v, j) => v === GEN.joinG(q.fam, st.top[j], st.side[i])));
     st.done = true; st.ok = g.gam && cellsOK; st.slip = st.ok ? null : 'W7'; st.tagged = false;
     st.msg = st.ok ? '' : !g.gam ? 'A gamete is wrong: each parent gives ONE allele per gamete, so Bb makes B and b.' : 'A box is wrong: each box takes ONE letter from the top and ONE from the side.';
-    record(q, st.ok, st.slip); paintSit(); return;
+    record(q, st.ok, st.slip); afterAnswer(it); paintSit(); return;
   }
+  if (t.closest('#reveal')) { st.rev = true; st.ticks = [false, false, false, false]; paintSit(); return; }
+  const tk = t.closest('[data-tick]'); if (tk && st.rev && !st.done) { st.ticks[+tk.dataset.tick] = !st.ticks[+tk.dataset.tick]; paintSit(); return; }
+  if (t.closest('#markDone')) { st.done = true; st.ok = st.ticks.every(Boolean); st.slip = null; st.tagged = false; record(q, st.ok, null); paintSit(); return; }
   if (t.closest('#evStart')) { st.ev = 'on'; st.taps = []; paintSit(); return; }
   if (t.closest('#evCheck')) { checkEvidence(it, false); paintSit(); return; }
   if (t.closest('#evSkip')) { checkEvidence(it, true); st.evRes.forEach(r => r.ok = false); paintSit(); return; }
@@ -771,6 +949,12 @@ document.addEventListener('click', e => {
 $('#helpBtn').onclick = () => {
   $('#help').innerHTML = `<h2 style="margin-top:0">What is this?</h2>
   <p>A trainer for the genetics charts on HS2 Test 3 (her words, in six quiz stems: <b>PEDIGREE CHARTS WILL BE TESTED IN TEST 3</b>). It makes endless fresh pedigree questions in exactly the shapes her quizzes use, and re-draws her own charts so you can check them against hers. Test 3 closes Mon 26 Oct: confirm your own date on Canvas.</p>
+  <h3>The two doors</h3>
+  <p><b>🧭 Decide for me</b> deals 10 at a time: about 6 aimed at the slip you miss most (over your last 100 answers), 3 from the parts of her list you have seen least, and 1 review of a shape you missed before. A miss comes back 3 questions later, once. With no misses yet it says so and deals evenly, weighted towards pedigrees. <b>Practise</b> is the other door: pick any drill yourself.</p>
+  <h3>The Test 3 genetics set</h3>
+  <p>12 items in her shapes and her option wordings, on her clock (65 min for 37 questions is about 1 min 45 s each, so 21 min), with one written question last. No feedback until the end; then the score is split by slip and you can review every answer with its feedback. Karyotypes join the set in the next build.</p>
+  <h3>Slips and readiness</h3>
+  <p>One row per part of her Genetics list. A row is mastered after 3 right in a row, with no hints, across at least 2 days. Undo takes back your last answer; reset clears everything.</p>
   <h3>Where the answers come from</h3>
   <p>Every key is worked out by the engine from the chart as drawn, the way her method does it: does it skip a generation, is there a gender difference, who are the homozygous recessives. Her own questions and keys are shown word for word and labelled as hers. On one of her charts her key assumes a mode the chart alone doesn't force; the page says so there.</p>
   <h3>The slips (W1 to W9)</h3>
