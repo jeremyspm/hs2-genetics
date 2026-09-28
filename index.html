@@ -151,6 +151,57 @@ figure.fig figcaption{font-size:.76rem;color:var(--muted-fg);margin:5px 2px 0}
 .tagl.tool{background:hsl(218 91% 64% / .16);color:var(--primary)}
 .blankrow{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:.86rem;margin:4px 0}
 @media(min-width:1000px){ main.wide{max-width:1240px} }
+/* ── a sitting: chart left and question right on the handheld, stacked on a phone ── */
+.qgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-items:start}
+@media(min-width:1000px){
+  main.sit{max-width:1240px}
+  .qgrid{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:16px}
+  .qgrid .qchart{position:sticky;top:70px}
+  .opt,.btn{min-height:48px}
+}
+.qhead{display:flex;align-items:center;gap:10px;margin:0 0 8px;flex-wrap:wrap}
+.qhead .n{font-weight:700}
+.qhead .ty{font-size:.78rem;color:var(--muted-fg)}
+.stem{font-weight:650;line-height:1.5;margin:2px 0 10px}
+.prem{font-size:.8rem;color:var(--warn);font-weight:700;margin:0 0 4px}
+.opt{width:100%;font:inherit;color:var(--fg);text-align:left;align-items:center;min-height:44px}
+.opt:focus-visible,.btn:focus-visible,.ddb:focus-visible,.ddo:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.fb{border-left:4px solid var(--border);padding:8px 0 4px 12px;margin:12px 0 4px}
+.fb.right{border-color:var(--ok)} .fb.wrong{border-color:var(--danger)}
+.fb .verdict{font-weight:800;margin:0 0 6px}
+.fb.right .verdict{color:var(--ok)} .fb.wrong .verdict{color:var(--danger)}
+.fb p{margin:5px 0;font-size:.9rem;line-height:1.5}
+.fb .rule{color:var(--muted-fg);font-size:.86rem}
+.fb .slip{background:hsl(0 84% 60% / .1);border-radius:8px;padding:6px 9px}
+.fb .slip b{color:var(--danger)}
+.fb .hkey{font-size:.84rem;color:var(--warn)}
+.fbacts{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0}
+.fbacts .btn{padding:7px 12px;font-size:.84rem;min-height:40px}
+.tapbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0 0}
+.tapbar .hint{font-size:.82rem;color:var(--muted-fg);flex:1 1 200px}
+.evres{font-size:.86rem;margin:6px 0 0;line-height:1.5}
+.evres div{margin:3px 0}
+/* the justify-it cloze: each blank is a button over an INLINE panel, never a native <select> */
+.cloze{line-height:2.3;font-size:1rem}
+.ddb{display:inline-flex;align-items:center;gap:4px;font:inherit;font-size:.95rem;font-weight:650;color:var(--primary);background:var(--card);
+  border:1.5px dashed var(--primary);border-radius:8px;padding:3px 10px;cursor:pointer;min-height:40px;vertical-align:middle;line-height:1.25;text-align:left}
+.ddb.set{border-style:solid;color:var(--fg)}
+.ddb.open{box-shadow:0 0 0 2px var(--primary)}
+.ddb.k{border:1.5px solid var(--ok);color:var(--fg)} .ddb.x{border:1.5px solid var(--danger);color:var(--fg)}
+.ddp{display:flex;flex-direction:column;gap:6px;margin:8px 0;padding:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--muted)}
+.ddo{font:inherit;text-align:left;color:var(--fg);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 11px;cursor:pointer;min-height:44px}
+.ddfix{font-size:.8rem;color:var(--muted-fg);margin:2px 0 0}
+.allres{font-size:.86rem;margin:8px 0 0}
+.allres div{margin:4px 0;line-height:1.45}
+.duo2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+@media(max-width:560px){ .duo2{grid-template-columns:minmax(0,1fr)} }
+.sq{border-collapse:collapse;margin:8px 0;font-weight:700}
+.sq td,.sq th{border:1px solid var(--border);padding:6px 10px;text-align:center;min-width:48px}
+.sq th{color:var(--primary);background:var(--muted)}
+.chip2{display:inline-block;font-size:.72rem;padding:1px 8px;border-radius:99px;background:var(--accent);color:var(--muted-fg);margin:0 4px 4px 0}
+.done{text-align:center;padding:20px 10px}
+.done .big{font-size:2rem;font-weight:800}
+.sliprow{display:flex;justify-content:space-between;gap:8px;font-size:.86rem;padding:5px 0;border-bottom:1px dashed var(--border)}
 </style>
 </head>
 <body>
@@ -251,7 +302,7 @@ function herView(id) {
       if (k.c.t === 'fixed') return engLine(true, `${lab}Her rule, taught as a fact: ${esc(k.c.why)}`);
       return engLine(good, `${lab}${good ? 'The engine reaches her key on its own' : 'The engine does not reach her key'}: <b>${esc(r.got ?? 'no single answer')}</b>${r.why ? ` <span class="meta">(${esc(r.why)})</span>` : ''}`);
     }).join('');
-    return `<div class="herq"><div class="src"><span class="tagl">her question</span>${esc(src)}</div><div class="hq">${esc(q.q)}</div>${body}${eng}</div>`;
+    return `<div class="herq"><div class="src"><span class="tagl">her question</span>${esc(src)}</div><div class="hq">${esc(q.q)}</div>${body}${eng}${q.note ? `<div class="note">${esc(q.note)}</div>` : ''}</div>`;
   }).join('');
   const title = g.part === 'ab' ? 'Pedigree A and Pedigree B' : g.part === 'rules' ? 'Her dominant and recessive rules figure' : s0.t;
   return `<div class="shead"><button class="btn ghost" data-nav="her">‹ Her charts</button><h2>${esc(title)}</h2></div>
@@ -260,13 +311,314 @@ function herView(id) {
 }
 const engLine = (good, html) => `<div class="eng ${good ? 'good' : 'bad'}">${good ? '✓' : '⚠'} ${html}</div>`;
 
+/* ── progress: one log of answers in this browser (hs2gen.log); every tally is read off it ─────── */
+const dayKey = (t = new Date()) => `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+function logGet() { const l = LS('log'); return Array.isArray(l) ? l : []; }
+function slipsOffered(q) {
+  const s = new Set();
+  (q.opts || []).forEach(o => o.slip && s.add(o.slip));
+  (q.blanks || []).forEach(b => b.opts.forEach(o => o.slip && s.add(o.slip)));
+  if (q.type === 'ped-all') ['W1', 'W5', 'W8'].forEach(x => s.add(x));
+  return [...s];
+}
+function record(q, ok, slip, hint) {
+  const l = logGet();
+  l.push({ t: Date.now(), d: dayKey(), ty: q.type, sk: q.skill, ok: ok ? 1 : 0, sl: ok ? null : (slip || 'W9'), on: slipsOffered(q), h: hint ? 1 : 0 });
+  while (l.length > 600) l.shift();
+  SV('log', l);
+}
+
+/* ── drills ─────────────────────────────────────────────────────────────────────────── */
+const PED_ROWS = [
+  ['ped-mode', '🔎', 'Name the mode, then tap the evidence', 'Her option sets; then tap the people who prove it'],
+  ['ped-geno', '🧬', 'Genotype of a person', 'Mode found by you, given, or under a shading premise'],
+  ['ped-all', '✏️', 'Genotype everyone', 'Tap each person to set their genotype; recessives first'],
+  ['ped-cloze', '🧩', 'Justify it', 'This condition is [ ] since it occurs in [ ] and…'],
+  ['ped-next', '🎲', 'Next child', 'Child, son or affected son: Punnett the couple'],
+  ['ped-read', '👀', 'Read the chart', 'Counts, gender, deceased, relations'],
+  ['ped-geno2', '👫', 'Two genotypes, mode given', 'If it is autosomal recessive, what are II-1 and II-2?'],
+  ['ped-ab', '🅰️', 'A or B', 'Two charts: which one is dominant (or recessive)?'],
+  ['ped-pheno', '🙂', 'Phenotype of a carrier', 'What you SEE is normal'],
+  ['ped-bb', '🎨', 'Which coloured shape is the bb?', 'Her revision deck, slides 59 and 79'],
+  ['ped-mt', '🧫', 'Mitochondrial', 'From a chart: who passes mtDNA on?']
+];
+const TYPE_LABEL = Object.fromEntries(PED_ROWS.map(r => [r[0], r[2]]));
+function pedList() {
+  const log = logGet();
+  const stat = ty => { const xs = log.filter(e => e.ty === ty); return xs.length ? `${xs.filter(e => e.ok).length}/${xs.length} right` : 'not tried yet'; };
+  return `<div class="shead"><button class="btn ghost" data-nav="">‹ Home</button><h2>🌳 Pedigree drills</h2></div>
+    <div class="card"><p class="lead">Fresh charts every time, in the shapes her quizzes use. Ten a round; a wrong answer names the slip behind it.</p>
+    <details class="how"><summary>How this works</summary>
+    <p>Every chart is made up on the spot and every key is worked out from the chart as drawn, with her three questions: does it skip a generation, is there a gender difference, who are the homozygous recessives. Wrong options are not random: each one is what a particular mistake would give (her bank's traps, called W1 to W9), so picking one tells you which mistake it was.</p>
+    <p>Keys: 1 to 4 pick an option, Enter moves on. When you tap people on a chart, the arrow keys move a blue ring between them and Space taps.</p></details></div>
+    <button class="lrow" data-drill="mixed"><span class="lic">🔀</span><span class="ltx"><b>Mixed: all of them</b><small>A round across every pedigree shape</small></span><span class="lch">›</span></button>
+    ${PED_ROWS.map(([ty, ic, t, sub]) => `<button class="lrow" data-drill="${ty}"><span class="lic">${ic}</span><span class="ltx"><b>${esc(t)}</b><small>${esc(sub)} · ${stat(ty)}</small></span><span class="lch">›</span></button>`).join('')}`;
+}
+const MIXED = [['ped-mode', 4], ['ped-geno', 4], ['ped-next', 3], ['ped-cloze', 2], ['ped-read', 2], ['ped-all', 2], ['ped-geno2', 1], ['ped-ab', 1], ['ped-pheno', 1], ['ped-bb', 1], ['ped-mt', 1]];
+function makeQ(type, o) {
+  o = o || {};
+  const R = GEN.rng((Math.random() * 2 ** 31) | 0);
+  for (let t = 0; t < 8; t++) {
+    const ty = type === 'mixed' ? R.weighted(MIXED) : type;
+    const T = GEN.PED_TYPES[ty];
+    const mode = o.mode || R.pick(T.modes);
+    const premise = ty === 'ped-geno' ? (o.premise !== undefined ? o.premise : R.weighted([[null, 5], ['mode', 3], ['shade', 2]])) : null;
+    const q = GEN.make(ty, R, { mode, premise });
+    if (q) return q;
+  }
+  return null;
+}
+let SIT = null;
+function startSit(title, next, n) {
+  SIT = { title, next, n: n || 10, items: [], i: 0 };
+  addItem();
+  nav('sit');
+}
+function addItem() {
+  const q = SIT.next(SIT.items.length);
+  if (!q) return false;
+  SIT.items.push({ q, st: { pick: null, done: false, taps: [], blanks: q.blanks ? q.blanks.map(() => null) : null, open: null, marks: {}, focus: null } });
+  return true;
+}
+const cur = () => SIT && SIT.items[SIT.i];
+
+/* the chart(s) for an item, with glow / taps / marks as the state says */
+function tapMode(it) { const { q, st } = it; return (q.type === 'ped-all' && !st.done) || (q.type === 'ped-mode' && st.ev === 'on'); }
+function chartHTML(it) {
+  const { q, st } = it, tap = tapMode(it);
+  if (q.charts) {
+    const g = st.done ? [q.fb.glowA || [], q.fb.glowB || []] : [[], []];
+    return `<div class="duo2">${q.charts.map((ch, i) => `<div class="chartbox">${GEN.svg(ch, { glow: g[i], aria: 'Pedigree ' + 'AB'[i] })}</div>`).join('')}</div>`;
+  }
+  const o = { tap, focus: tap ? st.focus : null, aria: 'The pedigree chart' };
+  if (q.type === 'ped-all') {
+    o.marks = {}; o.markCls = {};
+    q.people.forEach(p => { const k = st.marks[p.id]; if (k != null) o.marks[p.id] = p.cycle[k]; else if (!st.done) o.marks[p.id] = '?'; if (st.done) o.markCls[p.id] = k != null && p.cycle[k] === p.key ? 'good' : 'bad'; });
+    if (st.done) q.people.forEach(p => { o.marks[p.id] = p.key; });   // after Check: every tag shows the right genotype, red where yours differed (the list says what you had)
+  } else if (q.type === 'ped-mode' && st.ev) {
+    o.sel = st.taps;
+    if (st.ev === 'checked') o.glow = st.evGlow;
+  } else if (st.done) o.glow = q.fb.glow;
+  let cap = '';
+  if (q.chart.shadingMeans === 'dominant-phenotype') cap = 'Shaded = the dominant phenotype';
+  if (q.chart.shadingMeans === 'homozygous-recessive') cap = 'Shaded = a homozygous recessive genotype';
+  return `<div class="chartbox${tap ? ' tap' : ''}" id="cbox">${GEN.svg(q.chart, o)}</div>${cap ? `<div class="meta" style="margin-top:4px">${cap}</div>` : ''}`;
+}
+function stemHTML(q) {
+  if (q.type === 'ped-cloze') return '';
+  return `<div class="stem">${esc(q.stem)}</div>`;
+}
+function optsHTML(it) {
+  const { q, st } = it;
+  return q.opts.map((o, i) => {
+    let c = 'opt';
+    if (st.done) { c += ' lock'; if (i === q.key) c += ' k'; else if (i === st.pick) c += ' x'; }
+    return `<button class="${c}" data-o="${i}"${st.done ? ' tabindex="-1"' : ''}><span class="okey">${i + 1}</span><span>${esc(o.t)}</span></button>`;
+  }).join('');
+}
+function clozeHTML(it) {
+  const { q, st } = it;
+  const parts = q.stem.split(/\[(\d)\]/);
+  let h = '';
+  for (let k = 0; k < parts.length; k++) {
+    if (k % 2 === 0) { h += esc(parts[k]); continue; }
+    const i = +parts[k], b = q.blanks[i], v = st.blanks[i];
+    let c = 'ddb' + (v != null ? ' set' : '') + (st.open === i ? ' open' : '');
+    if (st.done) c += v === b.key ? ' k' : ' x';
+    h += `<button class="${c}" data-b="${i}">${v != null ? esc(b.opts[v].t) : 'choose ▾'}</button>`;
+  }
+  let panel = '';
+  if (st.open != null && !st.done) panel = `<div class="ddp">${q.blanks[st.open].opts.map((o, j) => `<button class="ddo" data-bo="${j}">${esc(o.t)}</button>`).join('')}</div>`;
+  let fix = '';
+  if (st.done) fix = q.blanks.map((b, i) => st.blanks[i] !== b.key ? `<div class="ddfix">Blank ${i + 1}: <b>${esc(b.opts[b.key].t)}</b></div>` : '').join('');
+  const ready = st.blanks.every(v => v != null);
+  return `<div class="cloze">${h}</div>${panel}${fix}${st.done ? '' : `<button class="btn primary wide" id="ckCloze"${ready ? '' : ' disabled'}>Check</button>`}`;
+}
+function allHTML(it) {
+  const { q, st } = it;
+  const set = Object.keys(st.marks).length;
+  let res = '';
+  if (st.done) {
+    const wrong = q.people.filter(p => !(st.marks[p.id] != null && p.cycle[st.marks[p.id]] === p.key));
+    res = `<div class="allres">${wrong.length ? wrong.slice(0, 5).map(p => { const pk = st.marks[p.id] != null ? p.cycle[st.marks[p.id]] : '(blank)'; const sl = st.marks[p.id] != null ? GEN.allSlip(q.mode, GEN.prep(q.chart).by[p.id], p.set, pk, q.args ? { L: q.args.L, x: 'sup' } : q.st) : null; return `<div>✗ <b>${esc(GEN.nameOf(q.chart, p.id))}</b>: ${esc(pk)} should be <b>${esc(p.key)}</b>${sl ? ` <span class="chip2">${sl} ${esc(GEN.SLIPS[sl].name)}</span>` : ''}</div>`; }).join('') + (wrong.length > 5 ? `<div class="meta">and ${wrong.length - 5} more, marked red on the chart</div>` : '') : '<div>✓ Every genotype right.</div>'}</div>`;
+  }
+  return `<div class="meta">${esc(q.hint)}</div>${res}${st.done ? '' : `<div class="tapbar"><span class="hint">${set} of ${q.people.length} set · tap a person again to change it</span><button class="btn primary" id="ckAll">Check</button></div>`}`;
+}
+function words(s) { return String(s).split(/\s+/).filter(Boolean).length; }
+/* feedback (§5.10): right or wrong, the slip and its fix, the witnesses, her rule, all under ~80 words */
+function fbHTML(it) {
+  const { q, st } = it;
+  if (!st.done) return '';
+  const S = GEN.SLIPS;
+  const keyText = q.opts ? q.opts[q.key].t : null;
+  const parts = [];
+  parts.push(st.ok || !st.tagged ? '' : st.slip && S[st.slip] ? `<p class="slip"><b>${st.slip} · ${esc(S[st.slip].name)}.</b> ${esc(S[st.slip].fix)}</p>` : '');
+  const ev = (q.fb.evidence || []).map(t => `<p>${esc(t)}</p>`);
+  const rule = (q.fb.rule || []).map(t => `<p class="rule">${esc(t)}</p>`);
+  const order = [ev[0], rule[0], ev[1], q.fb.note ? `<p class="hkey">${esc(q.fb.note)}</p>` : '', ev[2], rule[1]].filter(Boolean);
+  let budget = 80 - words(parts[0].replace(/<[^>]+>/g, ''));
+  for (const x of order) { const w = words(x.replace(/<[^>]+>/g, '')); if (parts.length < 3 || w <= budget) { parts.push(x); budget -= w; } }
+  const acts = [`<button class="btn ghost" id="copyQ">📋 Copy for Claude</button>`];
+  if (q.type === 'ped-mode' && !st.ev) acts.unshift(`<button class="btn" id="evStart">👆 Tap the evidence</button>`);
+  if (q.square && !st.sq) acts.unshift(`<button class="btn" id="sqShow">▦ Show the square</button>`);
+  const verdict = st.ok ? '✓ Right' : keyText ? `✗ The answer is ${keyText}` : '✗ Not quite';
+  return `<div class="fb ${st.ok ? 'right' : 'wrong'}"><div class="verdict">${esc(verdict)}</div>${parts.join('')}${evHTML(it)}${st.sq ? squareHTML(q.square) : ''}<div class="fbacts">${acts.join('')}</div></div>`;
+}
+function squareHTML(s) {
+  const P = GEN.punnett(s.fam, s.f, s.m);
+  return `<table class="sq" aria-label="Punnett square"><tr><th></th>${P.top.map(g => `<th>${esc(g)}</th>`).join('')}</tr>${P.side.map((g, i) => `<tr><th>${esc(g)}</th>${P.cells[i].map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table><div class="meta">Father ${esc(s.f)} across the top, mother ${esc(s.m)} down the side.</div>`;
+}
+/* tap the evidence (§5.3.2): checked against the witnesses */
+function evAgainst(q) { return [...new Set(q.args.opts.flatMap(o => GEN.modesOf(o) || []))].filter(m => !q.keySet.includes(m)); }
+function evHTML(it) {
+  const { q, st } = it;
+  if (q.type !== 'ped-mode' || !st.ev) return '';
+  if (st.ev === 'on') return `<div class="tapbar"><span class="hint">Tap the people who prove it (${st.taps.length} tapped), then check. You need proof against ${evAgainst(q).map(m => GEN.MODE_NAME[m]).join(', ')}.</span><button class="btn primary" id="evCheck">Check evidence</button><button class="btn ghost" id="evSkip">Show me</button></div>`;
+  return `<div class="evres">${st.evRes.map(r => `<div>${r.ok ? '✓' : '✗'} ${esc(r.text)}</div>`).join('')}</div>`;
+}
+function checkEvidence(it, show) {
+  const { q, st } = it;
+  const W = GEN.witnesses(q.chart), T = new Set(st.taps);
+  const res = [], glow = new Set();
+  for (const m of evAgainst(q)) {
+    const ws = W.filter(w => w.out.includes(m));
+    const hit = show ? null : ws.find(w => (w.k === 'y-pattern' || w.k === 'xld-pattern') ? w.ids.filter(i => T.has(i)).length >= 2 : w.ids.every(i => T.has(i)));
+    const w = hit || ws.sort((a, b) => (a.strict ? 0 : 1) - (b.strict ? 0 : 1))[0];
+    if (w) w.ids.forEach(i => glow.add(i));
+    res.push({ ok: !!hit, text: `Not ${GEN.MODE_NAME[m]}: ${w ? GEN.wText(q.chart, w) : 'no single witness; the other modes fit the chart much better.'}` });
+  }
+  st.ev = 'checked'; st.evRes = res; st.evGlow = [...glow];
+}
+function sitView() {
+  const it = cur();
+  if (!it) return homeView();
+  const { q, st } = it;
+  const lab = TYPE_LABEL[q.type] || q.type;
+  let body = stemHTML(q);
+  if (q.opts) body += optsHTML(it);
+  else if (q.type === 'ped-cloze') body += clozeHTML(it);
+  else if (q.type === 'ped-all') body = stemHTML(q) + allHTML(it);
+  body += fbHTML(it);
+  const pips = SIT.items.map((x, i) => `<span class="pip${i === SIT.i ? ' cur' : ''}${x.st.done ? (x.st.ok ? ' ok' : ' bad') : ''}"></span>`).join('') + Array.from({ length: Math.max(0, SIT.n - SIT.items.length) }, () => '<span class="pip"></span>').join('');
+  return `<div class="qhead"><button class="btn ghost" id="leave" style="padding:5px 11px">‹ Leave</button><span class="n">${SIT.i + 1} / ${SIT.n}</span><span class="ty">${esc(SIT.title)}${SIT.title !== lab ? ' · ' + esc(lab) : ''}</span></div>
+    <div class="qgrid"><div class="qchart">${chartHTML(it)}</div><div class="qbody card">${body}</div></div>
+    <div class="pips" aria-hidden="true">${pips}</div>`;
+}
+function doneView() {
+  const xs = SIT.items.filter(x => x.st.done), right = xs.filter(x => x.st.ok).length;
+  const slips = {}; xs.filter(x => !x.st.ok).forEach(x => slips[x.st.slip] = (slips[x.st.slip] || 0) + 1);
+  const rows = Object.entries(slips).sort((a, b) => b[1] - a[1]).map(([k, n]) => `<div class="sliprow"><span><b>${k}</b> ${esc(GEN.SLIPS[k].name)}</span><span>${n} miss${n > 1 ? 'es' : ''}</span></div>`).join('');
+  return `<div class="card done"><div class="big">${right} / ${xs.length}</div><p class="meta">${esc(SIT.title)}</p></div>
+    ${rows ? `<div class="card"><b>Where the misses came from</b>${rows}</div>` : '<div class="card"><b>No misses this round.</b></div>'}
+    <button class="btn primary wide" id="again">Another round</button><button class="btn ghost wide" data-nav="">‹ Home</button>`;
+}
+function paintSit() {
+  const main = $('#view');
+  if (!SIT) { main.innerHTML = homeView(); return; }
+  if (SIT.fin) { main.innerHTML = doneView(); $('#footbar').classList.remove('on'); return; }
+  main.innerHTML = sitView();
+  const it = cur();
+  const fb = $('#footbar');
+  fb.innerHTML = `<button class="btn" id="prevQ"${SIT.i ? '' : ' disabled'}>‹ Back</button><button class="btn primary" id="nextQ"${it && it.st.done ? '' : ' disabled'}>${SIT.i + 1 >= SIT.n ? 'Finish' : 'Next ›'}</button>`;
+  fb.classList.add('on');
+}
+function answer(i) {
+  const it = cur(); if (!it || it.st.done) return;
+  const { q, st } = it;
+  st.pick = i; st.done = true; st.ok = i === q.key; st.slip = st.ok ? null : (q.opts[i].slip || 'W9'); st.tagged = !!q.opts[i].slip;
+  record(q, st.ok, st.slip);
+  paintSit();
+}
+function nextQ() {
+  const it = cur(); if (!it || !it.st.done) return;
+  if (SIT.i + 1 >= SIT.n) { SIT.fin = true; paintSit(); window.scrollTo(0, 0); return; }
+  if (SIT.i + 1 >= SIT.items.length && !addItem()) { SIT.fin = true; paintSit(); return; }
+  SIT.i++; paintSit(); window.scrollTo(0, 0);
+}
+function copyText(it) {
+  const { q, st } = it;
+  const lines = [`HS2 Genetics Trainer · ${TYPE_LABEL[q.type] || q.type}`, ''];
+  const chs = q.charts || [q.chart];
+  chs.forEach((ch, i) => { lines.push(q.charts ? `Chart ${'AB'[i]}:` : 'The chart:'); lines.push(GEN.describe(ch, q.premise === 'mode' ? q.mode : null)); lines.push(''); });
+  if (q.type === 'ped-cloze') {
+    lines.push('Question: ' + q.stem.replace(/\[(\d)\]/g, (m, i) => '[' + q.blanks[i].opts.map(o => o.t).join(' / ') + ']'));
+    lines.push('My answers: ' + st.blanks.map((v, i) => v == null ? '(blank)' : q.blanks[i].opts[v].t).join(' | '));
+    lines.push('Key: ' + q.blanks.map(b => b.opts[b.key].t).join(' | '));
+  } else if (q.type === 'ped-all') {
+    lines.push('Question: ' + q.stem);
+    lines.push('Key: ' + q.people.map(p => GEN.nameOf(q.chart, p.id) + ' ' + p.key).join(', '));
+    lines.push('Mine: ' + q.people.map(p => GEN.nameOf(q.chart, p.id) + ' ' + (st.marks[p.id] != null ? p.cycle[st.marks[p.id]] : '?')).join(', '));
+  } else {
+    lines.push('Question: ' + q.stem);
+    lines.push('Options: ' + q.opts.map((o, i) => `${i + 1}) ${o.t}`).join('  '));
+    lines.push('My answer: ' + (st.pick != null ? q.opts[st.pick].t : '(none)'));
+    lines.push('Key: ' + q.opts[q.key].t);
+  }
+  if (st.slip) lines.push(`Slip: ${st.slip} ${GEN.SLIPS[st.slip].name} (${GEN.SLIPS[st.slip].what})`);
+  lines.push('', 'Please explain it using her three questions: does it skip a generation, is there a gender difference, who are the homozygous recessives?');
+  return lines.join('\n');
+}
+async function copyOut(t, btn) {
+  let ok = false;
+  try { await navigator.clipboard.writeText(t); ok = true; } catch (e) {
+    const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select();
+    try { ok = document.execCommand('copy'); } catch (e2) {} ta.remove();
+  }
+  if (btn) { btn.textContent = ok ? '✓ Copied' : 'Copy failed: select it by hand'; }
+}
+function tapPerson(id) {
+  const it = cur(); if (!it || !tapMode(it)) return;
+  const { q, st } = it;
+  st.focus = id;
+  if (q.type === 'ped-all') {
+    const p = q.people.find(x => x.id === id); if (!p) return;
+    const k = st.marks[id]; st.marks[id] = k == null ? 0 : (k + 1) % p.cycle.length;
+  } else {
+    const i = st.taps.indexOf(id); if (i >= 0) st.taps.splice(i, 1); else st.taps.push(id);
+  }
+  const box = $('#cbox'); if (box) { box.outerHTML = chartHTML(it).replace(/<div class="meta"[\s\S]*$/, ''); }
+  const tb = $('.tapbar .hint'); if (tb) tb.textContent = q.type === 'ped-all' ? `${Object.keys(st.marks).length} of ${q.people.length} set · tap a person again to change it` : tb.textContent.replace(/\(\d+ tapped\)/, `(${st.taps.length} tapped)`);
+}
+/* the arrow keys move a ring over people (a controller has no trackpad), Space or Enter taps */
+function moveFocus(dir) {
+  const it = cur(); const ch = it.q.chart, L = GEN.layout(ch), vis = ch.people.filter(p => !p.hidden);
+  const by = GEN.prep(ch).by;
+  let f = it.st.focus && by[it.st.focus] ? by[it.st.focus] : null;
+  if (!f) { it.st.focus = vis.slice().sort((a, b) => a.gen - b.gen || L.pos[a.id] - L.pos[b.id])[0].id; }
+  else {
+    const x = L.pos[f.id];
+    let cand;
+    if (dir === 'ArrowLeft' || dir === 'ArrowRight') cand = vis.filter(p => p.gen === f.gen && (dir === 'ArrowRight' ? L.pos[p.id] > x : L.pos[p.id] < x)).sort((a, b) => Math.abs(L.pos[a.id] - x) - Math.abs(L.pos[b.id] - x));
+    else { const g = f.gen + (dir === 'ArrowDown' ? 1 : -1); cand = vis.filter(p => p.gen === g).sort((a, b) => Math.abs(L.pos[a.id] - x) - Math.abs(L.pos[b.id] - x)); }
+    if (cand.length) it.st.focus = cand[0].id;
+  }
+  const box = $('#cbox'); if (box) box.outerHTML = chartHTML(it).replace(/<div class="meta"[\s\S]*$/, '');
+}
+document.addEventListener('keydown', e => {
+  if (route() !== 'sit' || !SIT || SIT.fin) return;
+  if (document.querySelector('dialog[open]')) return;
+  const it = cur(); if (!it) return;
+  const { q, st } = it;
+  if (q.opts && !st.done && /^[1-9]$/.test(e.key) && +e.key <= q.opts.length) { e.preventDefault(); answer(+e.key - 1); return; }
+  if (tapMode(it) && /^Arrow/.test(e.key)) { e.preventDefault(); moveFocus(e.key); return; }
+  if (tapMode(it) && (e.key === ' ' || e.key === 'Enter') && st.focus && !(document.activeElement && document.activeElement.tagName === 'BUTTON')) { e.preventDefault(); tapPerson(st.focus); return; }
+  if (!tapMode(it) && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+    const bs = $$('#view .opt:not(.lock), #view .ddo, #view .ddb, #view .qbody .btn');
+    if (bs.length) { e.preventDefault(); const i = bs.indexOf(document.activeElement); bs[(i + (e.key === 'ArrowDown' ? 1 : -1) + bs.length) % bs.length].focus(); }
+    return;
+  }
+  if (e.key === 'Enter' && st.done && !(document.activeElement && document.activeElement.tagName === 'BUTTON')) { e.preventDefault(); nextQ(); }
+});
+
 /* ── home ───────────────────────────────────────────────────────────────────────────── */
 function homeView() {
-  const n = HER.reduce((a, s) => a + s.qs.length, 0);
+  const n = HER.reduce((a, s) => a + s.qs.length, 0), log = logGet();
   return `${idCard()}
+    <div class="lsec">Practise</div>
+    <button class="lrow" data-nav="ped"><span class="lic">🌳</span><span class="ltx"><b>Pedigree drills</b><small>${log.filter(e => e.sk === 'pedigree' || e.sk === 'sexlinked' || e.sk === 'mito').length} answered so far · 11 question shapes</small></span><span class="lch">›</span></button>
     <div class="lsec">Look at her charts</div>
     <button class="lrow" data-nav="her"><span class="lic">🖼️</span><span class="ltx"><b>Her charts</b><small>${HER_GROUPS.length} figures from her bank, redrawn, with her ${n} questions</small></span><span class="lch">›</span></button>
-    <div class="note">Build in progress (P2 of the plan): the drills, the two doors and the Test 3 set come next. This screen shows only what works today.</div>`;
+    <div class="note">Build in progress (P3): Punnett squares, the two doors and the Test 3 set come next. Only what works today is shown.</div>`;
 }
 
 /* ── routing ────────────────────────────────────────────────────────────────────────── */
@@ -278,26 +630,69 @@ function render() {
   $('#footbar').classList.remove('on');
   const main = $('#view');
   main.classList.toggle('wide', a === 'her' && !!b);
+  main.classList.toggle('sit', a === 'sit');
+  if (a === 'sit' && SIT) { paintSit(); document.title = SIT.title + ' · HS2 Genetics'; return; }
   if (a === 'her' && b && HER_GROUPS.some(g => g.ids.includes(b))) main.innerHTML = herView(b);
   else if (a === 'her') main.innerHTML = herList();
+  else if (a === 'ped') main.innerHTML = pedList();
   else main.innerHTML = homeView();
-  document.title = a === 'her' ? 'Her charts · HS2 Genetics' : 'HS2 Genetics · Trainer';
+  document.title = a === 'her' ? 'Her charts · HS2 Genetics' : a === 'ped' ? 'Pedigree drills · HS2 Genetics' : 'HS2 Genetics · Trainer';
 }
 document.addEventListener('click', e => {
-  const n = e.target.closest('[data-nav]'); if (n) { nav(n.dataset.nav); return; }
-  const h = e.target.closest('[data-her]'); if (h) { nav('her/' + h.dataset.her); return; }
+  const t = e.target;
+  const n = t.closest('[data-nav]'); if (n) { nav(n.dataset.nav); return; }
+  const h = t.closest('[data-her]'); if (h) { nav('her/' + h.dataset.her); return; }
+  const d = t.closest('[data-drill]'); if (d) { const ty = d.dataset.drill; startSit(ty === 'mixed' ? 'Mixed pedigree round' : TYPE_LABEL[ty], () => makeQ(ty)); return; }
+  if (route() !== 'sit' || !SIT) return;
+  const it = cur();
+  if (t.closest('#leave')) { SIT = null; nav(''); return; }
+  if (t.closest('#again')) { const nx = SIT.next, ti = SIT.title; SIT = null; history.replaceState(null, '', location.pathname); startSit(ti, nx); return; }
+  if (t.closest('#nextQ')) { nextQ(); return; }
+  if (t.closest('#prevQ')) { if (SIT.i) { SIT.i--; paintSit(); } return; }
+  if (!it) return;
+  const { q, st } = it;
+  const o = t.closest('[data-o]'); if (o) { answer(+o.dataset.o); return; }
+  const b = t.closest('[data-b]'); if (b && !st.done) { const i = +b.dataset.b; st.open = st.open === i ? null : i; paintSit(); const p = $('.ddo'); if (p) p.focus(); return; }
+  const bo = t.closest('[data-bo]'); if (bo && st.open != null) { st.blanks[st.open] = +bo.dataset.bo; const nx = st.blanks.findIndex(v => v == null); st.open = nx >= 0 ? nx : null; paintSit(); return; }
+  if (t.closest('#ckCloze')) {
+    st.done = true; const wrong = q.blanks.findIndex((bl, i) => st.blanks[i] !== bl.key);
+    st.ok = wrong < 0; st.slip = st.ok ? null : (q.blanks[wrong].opts[st.blanks[wrong]].slip || 'W9'); st.tagged = !st.ok && !!q.blanks[wrong].opts[st.blanks[wrong]].slip; st.open = null;
+    record(q, st.ok, st.slip); paintSit(); return;
+  }
+  if (t.closest('#ckAll')) {
+    st.done = true;
+    const by = GEN.prep(q.chart).by, sty = { L: q.args.L, x: 'sup' };
+    const wrong = q.people.filter(p => !(st.marks[p.id] != null && p.cycle[st.marks[p.id]] === p.key));
+    st.ok = !wrong.length;
+    const w0 = wrong.find(p => st.marks[p.id] != null);
+    const sl0 = w0 && GEN.allSlip(q.mode, by[w0.id], w0.set, w0.cycle[st.marks[w0.id]], sty);
+    st.slip = st.ok ? null : sl0 || 'W9'; st.tagged = !!sl0;
+    record(q, st.ok, st.slip); paintSit(); return;
+  }
+  if (t.closest('#evStart')) { st.ev = 'on'; st.taps = []; paintSit(); return; }
+  if (t.closest('#evCheck')) { checkEvidence(it, false); paintSit(); return; }
+  if (t.closest('#evSkip')) { checkEvidence(it, true); st.evRes.forEach(r => r.ok = false); paintSit(); return; }
+  if (t.closest('#sqShow')) { st.sq = true; paintSit(); return; }
+  const cp = t.closest('#copyQ'); if (cp) { copyOut(copyText(it), cp); return; }
+  const ps = t.closest('#cbox .ps'); if (ps) { tapPerson(ps.dataset.p); return; }
 });
 $('#helpBtn').onclick = () => {
   $('#help').innerHTML = `<h2 style="margin-top:0">What is this?</h2>
-  <p>A trainer for the genetics charts on HS2 Test 3 (her words, in six quiz stems: <b>PEDIGREE CHARTS WILL BE TESTED IN TEST 3</b>). It makes endless fresh pedigree, Punnett and karyotype questions in exactly the shapes her quizzes use, and re-draws her own charts so every question type can be asked about them.</p>
+  <p>A trainer for the genetics charts on HS2 Test 3 (her words, in six quiz stems: <b>PEDIGREE CHARTS WILL BE TESTED IN TEST 3</b>). It makes endless fresh pedigree questions in exactly the shapes her quizzes use, and re-draws her own charts so you can check them against hers. Test 3 closes Mon 26 Oct: confirm your own date on Canvas.</p>
   <h3>Where the answers come from</h3>
-  <p>Every key is worked out by the engine from the chart as drawn, the same way her method does it: does it skip a generation, is there a gender difference, who are the homozygous recessives. Her own questions and keys are shown word for word and labelled as hers.</p>
+  <p>Every key is worked out by the engine from the chart as drawn, the way her method does it: does it skip a generation, is there a gender difference, who are the homozygous recessives. Her own questions and keys are shown word for word and labelled as hers. On one of her charts her key assumes a mode the chart alone doesn't force; the page says so there.</p>
+  <h3>The slips (W1 to W9)</h3>
+  <p>Every wrong option is what a named mistake would give: W1 hidden carrier, W2 autosomal vs X-linked, W3 working backwards, W4 over-calling X-linked, W5 dominant-disorder genotypes, W6 probability wording, W7 genotype vs phenotype, W8 forced vs unknown, W9 chart reading. A wrong pick names its slip and gives the one-line fix.</p>
+  <h3>Copy for Claude</h3>
+  <p>After any answer, 📋 copies the question, your answer, the key, the slip and the chart written out in words, ready to paste to Claude.</p>
   <h3>For the admin</h3>
-  <p><code>engine.js</code> is all the genetics; <code>her-charts.js</code> is her charts as data; <code>node tests/run.mjs</code> checks the engine against a brute force and against every key she wrote. Progress lives in this browser only, under <code>hs2gen.</code>.</p>`;
+  <p><code>engine.js</code> is all the genetics; <code>her-charts.js</code> is her charts as data; <code>node tests/run.mjs</code> checks the engine against a brute force and against every key she wrote. Progress lives in this browser only, under <code>hs2gen.</code>; the theme follows the Test 3 Paper Sim's.</p>`;
   $('#helpDlg').showModal();
 };
 $('#helpClose').onclick = () => $('#helpDlg').close();
-paintTool(); paintCountdown(); render();
+paintTool(); paintCountdown();
+if (route() === 'sit' && !SIT) history.replaceState(null, '', location.pathname);
+render();
 </script>
 </body>
 </html>

@@ -235,7 +235,9 @@ iii4 M 3 5.5 a ii4+ii5  4
 iii5 M 3 6.5 a ii4+ii5  5
 iii6 F 3 7.5 a ii4+ii5  6`,
   couples: 'i1-i2 ii1-ii2 ii4-ii5',
-  qs: [{ bank: 'qfbef5fc57c', quiz: '211120', q: 'What is the genotype of III-1?', opts: ['EE', 'Ee', 'ee', 'E?'], key: 'ee', check: { t: 'geno', who: 'iii1', L: 'E', unk: 'q' } },
+  qs: [{ bank: 'qfbef5fc57c', quiz: '211120', q: 'What is the genotype of III-1?', opts: ['EE', 'Ee', 'ee', 'E?'], key: 'ee', check: { t: 'geno', who: 'iii1', L: 'E', unk: 'q', assume: 'AD' },
+    // Jeremy's ruling, 28 Sep 2026: her key wins on this chart. The engine alone finds autosomal recessive more likely (no skip, and two affected parents with only affected children), so it keys Ee.
+    note: "Her key assumes it is dominant: it never skips a generation (her rule 1). Autosomal recessive would also fit this chart, and the tool alone would call it recessive (then III-1 is Ee)." },
   { bank: 'qeff3a0957d', quiz: '211120', q: 'What percentage of the offspring of I-1 and I-2 have a chance of being affected by the disease represented by this pedigree chart?',
     opts: ['0%', '75%', '100%', '50%'], key: '50%', check: { t: 'next', f: 'i1', m: 'i2' } }] },
 

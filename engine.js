@@ -629,12 +629,12 @@ function svg(ch, opts) {
   const vis = ch.people.filter(p => !p.hidden), X = prep(ch), { by } = X;
   const nameRows = ch.numbering === 'names' ? Math.max(1, ...vis.map(p => wrap2(p.label || '').length)) : 1;
   // 8 slots fit 375 px with symbols >= 28 px; a row grows to fit names that wrap onto 2-3 lines
-  const L = layout(ch), SW = ch.numbering === 'names' ? 74 : 58, RH = (ch.blanksUnder ? 112 : 100) + 16 * (nameRows - 1), SZ = 42, R2 = SZ / 2;
+  const L = layout(ch), SW = ch.numbering === 'names' ? 74 : 58, MK = opts.marks ? 26 : 0, RH = (ch.blanksUnder ? 112 : 100) + 16 * (nameRows - 1) + MK, SZ = 42, R2 = SZ / 2;   // MK: room for a genotype tag under each label
   const showGen = ch.numbering === 'roman' || ch.genLabels;
   const left = showGen ? 36 : 8, top = (ch.title ? 44 : 14) + (ch.sibs ? 26 : 0);
   const px = id => left + L.pos[id] * SW, py = g => top + (g - 1) * RH + R2;
   const W = left + L.width * SW + 10;
-  const H = top + (L.gens - 1) * RH + SZ + 18 * nameRows + (ch.blanksUnder ? 22 : 0) + (ch.legend || ch.legendText ? 34 : 0) + (ch.caption ? 26 : 0) + 8;
+  const H = top + (L.gens - 1) * RH + SZ + 18 * nameRows + MK + 6 + (ch.blanksUnder ? 22 : 0) + (ch.legend || ch.legendText ? 34 : 0) + (ch.caption ? 26 : 0) + 8;
   const fill = FILL[ch.fill] || ch.fill || FILL.black;
   const unaff = ch.unaffFill === 'grey' ? '#b9b9b9' : '#fff';
   const o = [];
@@ -691,7 +691,7 @@ function svg(ch, opts) {
     if (opts.focus === p.id) o.push(`<rect x="${x - R2 - 10}" y="${y - R2 - 10}" width="${SZ + 20}" height="${SZ + 20}" rx="8" fill="none" stroke="#2563eb" stroke-width="3" stroke-dasharray="6 4"/>`);
     // hit area: the whole slot, so a thumb never misses
     o.push(`<rect class="hit" x="${x - SW / 2}" y="${y - R2 - 10}" width="${SW}" height="${SZ + 38}" fill="transparent"/>`);
-    let ly = y + R2 + 17;
+    let ly = y + R2 + 22;   // clear of the glow ring
     if (p.label) {
       const words = ch.numbering === 'names' ? wrap2(p.label) : [p.label];
       words.forEach((w, i) => o.push(`<text x="${x}" y="${ly + i * 16}" text-anchor="middle" font-size="${ch.numbering === 'names' ? 14 : 17}" fill="#111" font-weight="${ch.numbering === 'names' ? 600 : 700}">${esc(w)}</text>`));
@@ -701,11 +701,12 @@ function svg(ch, opts) {
     if (opts.marks && opts.marks[p.id] != null) {
       const mk = String(opts.marks[p.id]), mc = (opts.markCls && opts.markCls[p.id]) || '';
       const col = mc === 'bad' ? '#dc2626' : mc === 'good' ? '#15803d' : '#1d4ed8';
-      o.push(`<rect x="${x - 27}" y="${y - R2 - 25}" width="54" height="20" rx="5" fill="#fff" stroke="${col}" stroke-width="1.5"/><text x="${x}" y="${y - R2 - 10}" text-anchor="middle" font-size="14" font-weight="700" fill="${col}">${esc(mk)}</text>`);
+      const my = ly + (ch.blanksUnder ? 10 : 0) - 8;
+      o.push(`<rect x="${x - 27}" y="${my}" width="54" height="21" rx="5" fill="#fff" stroke="${col}" stroke-width="1.6"/><text x="${x}" y="${my + 15.5}" text-anchor="middle" font-size="14" font-weight="700" fill="${col}">${esc(mk)}</text>`);
     }
     o.push('</g>');
   }
-  let yb = top + (L.gens - 1) * RH + SZ + 18 * nameRows + (ch.blanksUnder ? 22 : 0) + 6;
+  let yb = top + (L.gens - 1) * RH + SZ + 18 * nameRows + MK + 6 + (ch.blanksUnder ? 22 : 0) + 6;
   if (ch.legend || ch.legendText) {
     const t = ch.legendText || null;
     if (t) o.push(`<text x="${left}" y="${yb + 18}" font-size="13" fill="#333">${esc(t)}</text>`);
@@ -1184,7 +1185,7 @@ function nextQ(R, o) {
       stem: (o.premise ? premiseText(mode, 'illus') + ' ' : '') + NEXT_STEM[what](A1, B1), opts: q.opts, key: q.key,
       square: { fam: XLINKED[mode] ? (DOMINANT[mode] ? 'xld' : 'xl') : 'auto', f: gf, m: gm, L: st.L },
       fb: { rule: [RULE.rec, RULE.pun], evidence: [`${cap(a)} is ${gf} and ${b} is ${gm}. Their Punnett square gives ${D.key} for ${{ child: 'each child', son: 'each son', dau: 'each daughter', affson: 'an affected son, counted out of all the children' }[w2]}.`],
-        glow: [f.f, f.m], note: '' } };
+        glow: [f.f, f.m], note: o.premise ? '' : `First name the mode: this chart shows ${MODE_NAME[mode]}.` } };
   }
   return null;
 }
@@ -1427,12 +1428,12 @@ function herCheck(chs, s, q, c, key, opts) {
     case 'count': return { got: String(V.filter(p => c.what === 'F' ? p.sex === 'F' : c.what === 'deceased' ? p.deceased : false).length) };
     case 'gender': return { got: by[c.who].sex === 'M' ? 'Male' : 'Female' };
     case 'geno': {
-      const m = c.mode || oneMode();
+      const m = c.mode || c.assume || oneMode();   // assume: her key presumes a mode the chart alone doesn't force (her-charts.js says why)
       if (!m) return { got: null, why: `no single mode: P=[${A.P}]` };
       if (c.alsoEngine && oneMode() !== m) return { got: null, why: `her title says ${m} but the engine finds P=[${A.P}]` };
       const r = GEN.solve(ch, m), p = by[c.who];
       const t = GEN.genoText(m, p, r.sets[c.who], { L: c.L || 'A', x: c.x || 'sup' }, c.unk || 'nei');
-      return { got: c.prefix ? (opts.find(o => o.startsWith(t + ' ') || o.startsWith(t + '=')) || t) : t, why: `${m}${c.mode ? ' (given)' : ' (found)'} set {${r.sets[c.who]}}` };
+      return { got: c.prefix ? (opts.find(o => o.startsWith(t + ' ') || o.startsWith(t + '=')) || t) : t, why: `${m}${c.mode ? ' (given)' : c.assume ? ' (her key assumes it; the chart alone gives ' + (oneMode() || 'no single mode') + ')' : ' (found)'} set {${r.sets[c.who]}}` };
     }
     case 'geno2': {
       const r = GEN.solve(ch, c.mode);
