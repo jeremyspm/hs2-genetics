@@ -418,8 +418,8 @@ function makeQ(type, o) {
   return null;
 }
 let SIT = null;
-function startSit(title, next, n) {
-  SIT = { title, next, n: n || 10, items: [], i: 0 };
+function startSit(title, next, n, extra) {
+  SIT = Object.assign({ title, next, n: n || 10, items: [], i: 0 }, extra || {});   // extra (test, decide) must be set before the first paint
   addItem();
   nav('sit');
 }
@@ -790,16 +790,14 @@ function planDecide() {
 }
 function startDecide() {
   const plan = planDecide();
-  startSit('Decide for me', k => { const p = plan[k]; if (!p) return null; const q = fromSpec(p.spec, p.slip); if (q) q.why = p.why; return q; }, 10);
-  SIT.decide = true;
+  startSit('Decide for me', k => { const p = plan[k]; if (!p) return null; const q = fromSpec(p.spec, p.slip); if (q) q.why = p.why; return q; }, 10, { decide: true });
 }
 /* the Test 3 genetics set (§5.9): 12 mixed items in her shapes, her pace (65 min / 37 Q), one written, scored by slip */
 const SET_SPECS = [['ped-mode', {}], ['ped-mode', {}], ['ped-geno', {}], ['ped-next', {}], ['ped-cloze', {}], ['ped-read', {}], ['ped-geno2'], ['pun-fwd'], ['pun-back'], ['pun-xl'], ['pun-abo'], ['pun-pat']];
 function startSet() {
   const R = GEN.rng((Math.random() * 2 ** 31) | 0);
   const plan = R.shuffle(SET_SPECS).slice(0, 11).concat([['ped-write', {}]]);
-  startSit('Test 3 genetics set', k => plan[k] ? fromSpec(plan[k]) : null, 12);
-  SIT.test = true; SIT.deadline = Date.now() + 12 * 105e3;
+  startSit('Test 3 genetics set', k => plan[k] ? fromSpec(plan[k]) : null, 12, { test: true, deadline: Date.now() + 12 * 105e3 });
 }
 setInterval(() => {
   if (!SIT || !SIT.test || SIT.fin || SIT.review || route() !== 'sit') return;

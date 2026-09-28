@@ -96,6 +96,7 @@ for (const [w, h] of [[375, 812], [1280, 800]]) {
         await answerOne(page, info, w, flow, k);
         const hidden = flow === 'set' ? await page.evaluate(() => !!document.querySelector('.fb .verdict')) : false;
         if (hidden) bad(w + 'px set: feedback shown before the end');
+        if (flow === 'set' && k === 0 && !(await page.$('#timer'))) bad(w + 'px set: no timer on the first question');
         await page.click('#nextQ');
         if (errs.length) { bad(w + 'px ' + flow + ' #' + k + ': ' + errs.join(' | ')); errs.length = 0; }
       }
