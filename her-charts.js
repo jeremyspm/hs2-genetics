@@ -526,7 +526,13 @@ g10  M 3 11.5 - c5+s5   -
 g11  F 3 12.5 - c5+s5   -
 g12  M 3 13.5 a c5+s5   -`,
   couples: 'dad-mum c1-s1 c4-s4 c5-s5',
-  qs: [{ bank: 'q7baff97fb9', quiz: '211104', written: true,
+  qs: [{ bank: 'q7baff97fb9', quiz: '211104',
+    // her model answer, word for word (hs2-test3/content/her-answers.json, key "look at the following pedigree chart")
+    written: ['This is an autosomal dominant disease.', "We know it is dominant as we see it present in each generation and we don't see it skipping generations.",
+      "We know it's likely autosomal as we see it in both sexes relatively equally, and we also see that a father with the disease has passed it onto his son.",
+      'The Dad must be Bb, as he has the disease, but some of his children do not, so he must be able to pass a recessive, non diseased allele to those children.',
+      'The mum does not have the disease, and so she must be a homozygous recessive bb', 'We can do a punnet square', 'B b', 'b Bb bb', 'b Bb bb',
+      'which shows that if they have another child, there is a 50% chance they would inherit the disease from their dad.'],
     q: 'Look at the following pedigree chart. 1. What is the mode of inheritance? 2. How can you tell? 3. What are the genotypes of the parents at the top of the chart? 4. What is the chance of those parents having another child with the disease if they had another child?',
     check: { t: 'saq', mode: 'AD', dad: 'Bb', mum: 'bb', pct: '50%', L: 'B' } }] },
 

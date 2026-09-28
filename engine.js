@@ -410,12 +410,13 @@ function founderD(R, mode, sex, want) {  // want: 'aff' | 'carrier' | 'normal'
 }
 function genChart(R, mode, o) {
   o = o || {};
+  const numbering = o.numbering || R.weighted([['roman', 6], ['running', 2], ['names', 2]]);
   for (let tries = 0; tries < 80; tries++) {
     const ch = buildChart(R, mode, o);
     const L = layout(ch);
-    if (L.width > (o.maxSlots || 8)) continue;
+    if (L.width > (o.maxSlots || (numbering === 'names' ? 6 : 8))) continue;   // names need wider slots to stay readable
     if (o.accept && !o.accept(ch)) continue;
-    labelChart(ch, R, o);
+    labelChart(ch, R, Object.assign({}, o, { numbering }));
     return ch;
   }
   return null;
@@ -507,6 +508,9 @@ function layout(ch) {
   if (vis.every(p => typeof p.x === 'number' && !p._auto)) {
     const mn = Math.min(...vis.map(p => p.x));
     const pos = {}; vis.forEach(p => pos[p.id] = p.x - mn + 0.5);
+    // an only child sits straight under the couple when her figure has it nearly there (no one-pixel jog)
+    const X0 = prep(ch);
+    for (const f of X0.fams) { const ks = f.kids.filter(k => !X0.by[k].hidden); if (ks.length !== 1 || X0.by[f.f].hidden || X0.by[f.m].hidden) continue; const mid = (pos[f.f] + pos[f.m]) / 2; if (Math.abs(pos[ks[0]] - mid) < 0.35 && !X0.kids[ks[0]].length) pos[ks[0]] = mid; }
     return { pos, width: Math.max(...vis.map(p => pos[p.id])) + 0.5, gens: Math.max(...vis.map(p => p.gen)) };
   }
   const X = prep(ch), { by, kids } = X;
@@ -547,7 +551,7 @@ GEN.layout = layout;
 function labelChart(ch, R, o) {
   const L = layout(ch);
   ch.people.forEach(p => { p.x = L.pos[p.id]; p._auto = true; });
-  const numbering = o.numbering || R.weighted([['roman', 6], ['running', 2], ['names', 2]]);
+  const numbering = o.numbering;
   ch.numbering = numbering;
   ch.fill = o.fill || R.weighted([['black', 5], ['red', 2], ['blue', 2], ['grey', 1]]);
   const rows = {};
@@ -556,7 +560,7 @@ function labelChart(ch, R, o) {
   const usedF = R.shuffle(NAMES_F), usedM = R.shuffle(NAMES_M);
   Object.keys(rows).sort((a, b) => a - b).forEach(g => {
     rows[g].sort((a, b) => a.x - b.x).forEach((p, i) => {
-      p.label = numbering === 'roman' ? String(i + 1) : numbering === 'running' ? String(++run) : (p.sex === 'F' ? usedF : usedM).pop();
+      p.label = numbering === 'roman' ? String(i + 1) : numbering === 'running' ? String(++run) : numbering === 'names' ? (p.sex === 'F' ? usedF : usedM).pop() : '';
     });
   });
 }
@@ -622,12 +626,13 @@ function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').
 GEN.esc = esc;
 function svg(ch, opts) {
   opts = opts || {};
-  const L = layout(ch), SW = 60, RH = ch.blanksUnder ? 112 : 100, SZ = 42, R2 = SZ / 2;
-  const showGen = ch.numbering === 'roman' || ch.genLabels;
-  const left = showGen ? 44 : 10, top = (ch.title ? 44 : 14) + (ch.sibs ? 26 : 0);
   const vis = ch.people.filter(p => !p.hidden), X = prep(ch), { by } = X;
+  const nameRows = ch.numbering === 'names' ? Math.max(1, ...vis.map(p => wrap2(p.label || '').length)) : 1;
+  // 8 slots fit 375 px with symbols >= 28 px; a row grows to fit names that wrap onto 2-3 lines
+  const L = layout(ch), SW = ch.numbering === 'names' ? 74 : 58, RH = (ch.blanksUnder ? 112 : 100) + 16 * (nameRows - 1), SZ = 42, R2 = SZ / 2;
+  const showGen = ch.numbering === 'roman' || ch.genLabels;
+  const left = showGen ? 36 : 8, top = (ch.title ? 44 : 14) + (ch.sibs ? 26 : 0);
   const px = id => left + L.pos[id] * SW, py = g => top + (g - 1) * RH + R2;
-  const nameRows = ch.numbering === 'names' ? 2 : 1;
   const W = left + L.width * SW + 10;
   const H = top + (L.gens - 1) * RH + SZ + 18 * nameRows + (ch.blanksUnder ? 22 : 0) + (ch.legend || ch.legendText ? 34 : 0) + (ch.caption ? 26 : 0) + 8;
   const fill = FILL[ch.fill] || ch.fill || FILL.black;
@@ -635,7 +640,7 @@ function svg(ch, opts) {
   const o = [];
   const line = (x1, y1, x2, y2, w) => o.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#222" stroke-width="${w || 2}"/>`);
   if (ch.title) o.push(`<text x="${W / 2}" y="30" text-anchor="middle" font-size="20" font-weight="700" fill="#111">${esc(ch.title)}</text>`);
-  if (showGen) for (let g = 1; g <= L.gens; g++) o.push(`<text x="10" y="${py(g) + 7}" font-size="19" font-weight="700" fill="#111" font-family="Georgia,serif">${ROMAN[g]}</text>`);
+  if (showGen) for (let g = 1; g <= L.gens; g++) o.push(`<text x="4" y="${py(g) + 7}" font-size="19" font-weight="700" fill="#111" font-family="Georgia,serif">${ROMAN[g]}</text>`);
   if (ch.genWord) o.push(`<text x="6" y="${top - 2}" font-size="13" fill="#333">Generation</text>`);
   // couples
   for (const c of ch.couples) {
@@ -689,7 +694,7 @@ function svg(ch, opts) {
     let ly = y + R2 + 17;
     if (p.label) {
       const words = ch.numbering === 'names' ? wrap2(p.label) : [p.label];
-      words.forEach((w, i) => o.push(`<text x="${x}" y="${ly + i * 16}" text-anchor="middle" font-size="${ch.numbering === 'names' ? 13 : 16}" fill="#111" font-weight="${ch.numbering === 'names' ? 600 : 700}">${esc(w)}</text>`));
+      words.forEach((w, i) => o.push(`<text x="${x}" y="${ly + i * 16}" text-anchor="middle" font-size="${ch.numbering === 'names' ? 14 : 17}" fill="#111" font-weight="${ch.numbering === 'names' ? 600 : 700}">${esc(w)}</text>`));
       ly += 16 * words.length;
     }
     if (ch.blanksUnder) o.push(`<line x1="${x - 14}" y1="${ly + 2}" x2="${x + 14}" y2="${ly + 2}" stroke="#444" stroke-width="1.4"/>`);
@@ -712,9 +717,15 @@ function svg(ch, opts) {
     yb += 34;
   }
   if (ch.caption) o.push(`<text x="${left}" y="${yb + 18}" font-size="14" fill="#222" font-style="italic">${esc(ch.caption)}</text>`);
-  return `<svg class="ped${opts.cls ? ' ' + opts.cls : ''}" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(opts.aria || 'Pedigree chart')}" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif">${o.join('')}</svg>`;
+  return `<svg class="ped${opts.cls ? ' ' + opts.cls : ''}" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="${vis.some(p => p._auto) ? `min-width:${Math.round(W * 28 / SZ)}px;` : ''}max-width:${Math.round(W * (opts.grow || 1))}px" role="img" aria-label="${esc(opts.aria || 'Pedigree chart')}" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif">${o.join('')}</svg>`;
 }
-function wrap2(s) { if (s.length <= 9) return [s]; const i = s.indexOf(' ', 5); return i > 0 ? [s.slice(0, i).replace(/,$/, ''), s.slice(i + 1)] : [s]; }
+function wrap2(s) {         // a long name wraps onto lines of about 10 characters, like her figures
+  if (s.length <= 9) return [s];
+  const out = []; let cur = '';
+  for (const w of s.split(' ')) { if (cur && (cur + ' ' + w).length > 10) { out.push(cur); cur = w; } else cur = cur ? cur + ' ' + w : w; }
+  if (cur) out.push(cur);
+  return out.slice(0, 3);
+}
 GEN.svg = svg;
 
 /* ── slips (§3): every distractor carries the id of the wrong rule that produces it ─────── */
@@ -1398,6 +1409,74 @@ GEN.make = function (type, R, o) {
   if (q) q.id = type + ':' + Math.floor(R() * 1e9).toString(36);
   return q;
 };
+
+/* ── calibration: how the engine reaches each of her keys on its own (§6.4; the page shows it too) ── */
+function herCheck(chs, s, q, c, key, opts) {
+  const ch = chs[s.id], A = GEN.analyse(ch), X = GEN.prep(ch), by = X.by;
+  const V = ch.people.filter(p => !p.hidden);
+  const oneMode = () => (A.P.length === 1 ? A.P[0] : null);
+  switch (c.t) {
+    case 'fixed': return { got: key, why: 'fixed: ' + c.why };
+    case 'mode': {
+      const os = (c.opts || opts).filter(o => GEN.modesOf(o));
+      const k = GEN.keyOption(A.P, os);
+      const ev = k ? GEN.evidenceOK(ch, GEN.modesOf(k), os, A) : false;
+      const others = A.poss.filter(m => !A.P.includes(m));
+      return { got: k, why: `P=[${A.P}] possible=[${A.poss}] evidence ${ev ? 'ok' : 'THIN'}${others.length ? ' (so "probably")' : ''}` };
+    }
+    case 'count': return { got: String(V.filter(p => c.what === 'F' ? p.sex === 'F' : c.what === 'deceased' ? p.deceased : false).length) };
+    case 'gender': return { got: by[c.who].sex === 'M' ? 'Male' : 'Female' };
+    case 'geno': {
+      const m = c.mode || oneMode();
+      if (!m) return { got: null, why: `no single mode: P=[${A.P}]` };
+      if (c.alsoEngine && oneMode() !== m) return { got: null, why: `her title says ${m} but the engine finds P=[${A.P}]` };
+      const r = GEN.solve(ch, m), p = by[c.who];
+      const t = GEN.genoText(m, p, r.sets[c.who], { L: c.L || 'A', x: c.x || 'sup' }, c.unk || 'nei');
+      return { got: c.prefix ? (opts.find(o => o.startsWith(t + ' ') || o.startsWith(t + '=')) || t) : t, why: `${m}${c.mode ? ' (given)' : ' (found)'} set {${r.sets[c.who]}}` };
+    }
+    case 'geno2': {
+      const r = GEN.solve(ch, c.mode);
+      return { got: c.who.map(id => GEN.genoText(c.mode, by[id], r.sets[id], { L: c.L }, c.unk)).join(' and ') };
+    }
+    case 'next': { const m = oneMode(); if (!m) return { got: null, why: `no single mode: P=[${A.P}]` }; const v = GEN.coupleProb(ch, m, c.f, c.m, 'child'); return { got: v == null ? null : pct(v), why: m }; }
+    case 'pheno': { const r = GEN.solve(ch, c.mode); const p = by[c.who]; return { got: p.affected ? 'affected' : 'normal', why: `set {${r.sets[c.who]}}` }; }
+    case 'whoHas': {
+      const r = GEN.solve(ch, c.mode);
+      const hits = c.among.filter(id => by[id].sex === c.sex && JSON.stringify(r.sets[id]) === JSON.stringify([c.d]));
+      return { got: hits.length === 1 ? by[hits[0]].label : null, why: `matches: ${hits.map(h => by[h].label)}` };
+    }
+    case 'aorb': {
+      const want = GEN.modesOf(c.want), isW = id => { const A2 = GEN.analyse(chs[id]); return A2.P.every(m => want.includes(m)); };
+      const a = isW(c.a), b = isW(c.b);
+      return { got: a && !b ? 'Pedigree A' : b && !a ? 'Pedigree B' : null, why: `A P=[${GEN.analyse(chs[c.a]).P}] B P=[${GEN.analyse(chs[c.b]).P}]` };
+    }
+    case 'mt': return { got: A.P.length === 1 && A.P[0] === 'MT' ? 'Mothers to all their children' : null, why: `P=[${A.P}]` };
+    case 'kids': return { got: String(X.fams.find(f => f.f === c.f && f.m === c.m).kids.length) };
+    case 'pctAff': { const ks = X.fams.find(f => f.f === c.f && f.m === c.m).kids; return { got: pct(ks.filter(k => by[k].affected).length / ks.length) }; }
+    case 'pctFemDesc': {
+      const desc = []; const walk = id => X.kids[id].forEach(k => { if (!desc.includes(k)) { desc.push(k); walk(k); } }); walk(c.f);
+      const fem = desc.filter(k => by[k].sex === 'F'); return { got: pct(fem.filter(k => by[k].affected).length / fem.length), why: `${fem.filter(k => by[k].affected).length} of ${fem.length} female descendants` };
+    }
+    case 'dauSons': { const ks = X.fams.find(f => f.f === c.f && f.m === c.m).kids; return { got: `${ks.filter(k => by[k].sex === 'F').length} and ${ks.filter(k => by[k].sex === 'M').length}` }; }
+    case 'rel': { const r = GEN.relation(ch, c.a, c.b); return { got: { couple: 'a couple that reproduces', siblings: 'siblings' }[r] || r }; }
+    case 'modeWord': case 'occurs': case 'linkWord': case 'affects': {
+      const m = oneMode(); if (!m) return { got: null, why: `P=[${A.P}]` };
+      const slot = { modeWord: 'mode', occurs: 'occurs', linkWord: 'link', affects: 'affects' }[c.t];
+      const v = Object.keys(GEN.CLOZE).find(v => JSON.stringify([...GEN.CLOZE[v][slot]].sort()) === JSON.stringify([...opts].sort()));
+      const ks = v && GEN.clozeKeys(ch, m, v);
+      return { got: ks ? ks[['mode', 'occurs', 'link', 'affects'].indexOf(slot)] : null, why: `${m} ${v || 'no matching option set'}` };
+    }
+    case 'bbShape': { const m = oneMode(); return { got: m === 'AD' ? 'white' : m === 'AR' ? ch.fill : null, why: `P=[${A.P}]` }; }
+    case 'saq': {
+      const m = oneMode(); const r = GEN.solve(ch, 'AD');
+      const dad = GEN.genoText('AD', by.dad, r.sets.dad, { L: c.L }, 'nei'), mum = GEN.genoText('AD', by.mum, r.sets.mum, { L: c.L }, 'nei');
+      const v = GEN.coupleProb(ch, 'AD', 'dad', 'mum', 'child');
+      return { got: `${m}|${dad}|${mum}|${pct(v)}`, want: `${c.mode}|${c.dad}|${c.mum}|${c.pct}` };
+    }
+  }
+  return { got: null, why: 'unknown check ' + c.t };
+}
+GEN.herCheck = herCheck;
 
 /* ── her charts are written as text tables (her-charts.js); this turns one into a chart ─────
    line: id sex gen x flags parents label…   flags: a affected, c carrier shown, d deceased, h hidden

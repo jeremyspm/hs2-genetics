@@ -234,72 +234,6 @@ section('3 generated questions', () => {
 });
 
 /* ─── 4. calibration: her charts, her keys (§6.4) ─────────────────────────────────── */
-const PCT = v => Math.round(v * 100) + '%';
-function herCheck(chs, s, q, c, key, opts) {
-  const ch = chs[s.id], A = G.analyse(ch), X = G.prep(ch), by = X.by;
-  const V = ch.people.filter(p => !p.hidden);
-  const oneMode = () => (A.P.length === 1 ? A.P[0] : null);
-  switch (c.t) {
-    case 'fixed': return { got: key, why: 'fixed: ' + c.why };
-    case 'mode': {
-      const os = (c.opts || opts).filter(o => G.modesOf(o));
-      const k = G.keyOption(A.P, os);
-      const ev = k ? G.evidenceOK(ch, G.modesOf(k), os, A) : false;
-      const others = A.poss.filter(m => !A.P.includes(m));
-      return { got: k, why: `P=[${A.P}] possible=[${A.poss}] evidence ${ev ? 'ok' : 'THIN'}${others.length ? ' (so "probably")' : ''}` };
-    }
-    case 'count': return { got: String(V.filter(p => c.what === 'F' ? p.sex === 'F' : c.what === 'deceased' ? p.deceased : false).length) };
-    case 'gender': return { got: by[c.who].sex === 'M' ? 'Male' : 'Female' };
-    case 'geno': {
-      const m = c.mode || oneMode();
-      if (!m) return { got: null, why: `no single mode: P=[${A.P}]` };
-      if (c.alsoEngine && oneMode() !== m) return { got: null, why: `her title says ${m} but the engine finds P=[${A.P}]` };
-      const r = G.solve(ch, m), p = by[c.who];
-      const t = G.genoText(m, p, r.sets[c.who], { L: c.L || 'A', x: c.x || 'sup' }, c.unk || 'nei');
-      return { got: c.prefix ? (opts.find(o => o.startsWith(t + ' ') || o.startsWith(t + '=')) || t) : t, why: `${m}${c.mode ? ' (given)' : ' (found)'} set {${r.sets[c.who]}}` };
-    }
-    case 'geno2': {
-      const r = G.solve(ch, c.mode);
-      return { got: c.who.map(id => G.genoText(c.mode, by[id], r.sets[id], { L: c.L }, c.unk)).join(' and ') };
-    }
-    case 'next': { const m = oneMode(); if (!m) return { got: null, why: `no single mode: P=[${A.P}]` }; const v = G.coupleProb(ch, m, c.f, c.m, 'child'); return { got: v == null ? null : PCT(v), why: m }; }
-    case 'pheno': { const r = G.solve(ch, c.mode); const p = by[c.who]; return { got: p.affected ? 'affected' : 'normal', why: `set {${r.sets[c.who]}}` }; }
-    case 'whoHas': {
-      const r = G.solve(ch, c.mode);
-      const hits = c.among.filter(id => by[id].sex === c.sex && JSON.stringify(r.sets[id]) === JSON.stringify([c.d]));
-      return { got: hits.length === 1 ? by[hits[0]].label : null, why: `matches: ${hits.map(h => by[h].label)}` };
-    }
-    case 'aorb': {
-      const want = G.modesOf(c.want), isW = id => { const A2 = G.analyse(chs[id]); return A2.P.every(m => want.includes(m)); };
-      const a = isW(c.a), b = isW(c.b);
-      return { got: a && !b ? 'Pedigree A' : b && !a ? 'Pedigree B' : null, why: `A P=[${G.analyse(chs[c.a]).P}] B P=[${G.analyse(chs[c.b]).P}]` };
-    }
-    case 'mt': return { got: A.P.length === 1 && A.P[0] === 'MT' ? 'Mothers to all their children' : null, why: `P=[${A.P}]` };
-    case 'kids': return { got: String(X.fams.find(f => f.f === c.f && f.m === c.m).kids.length) };
-    case 'pctAff': { const ks = X.fams.find(f => f.f === c.f && f.m === c.m).kids; return { got: PCT(ks.filter(k => by[k].affected).length / ks.length) }; }
-    case 'pctFemDesc': {
-      const desc = []; const walk = id => X.kids[id].forEach(k => { if (!desc.includes(k)) { desc.push(k); walk(k); } }); walk(c.f);
-      const fem = desc.filter(k => by[k].sex === 'F'); return { got: PCT(fem.filter(k => by[k].affected).length / fem.length), why: `${fem.filter(k => by[k].affected).length} of ${fem.length} female descendants` };
-    }
-    case 'dauSons': { const ks = X.fams.find(f => f.f === c.f && f.m === c.m).kids; return { got: `${ks.filter(k => by[k].sex === 'F').length} and ${ks.filter(k => by[k].sex === 'M').length}` }; }
-    case 'rel': { const r = G.relation(ch, c.a, c.b); return { got: { couple: 'a couple that reproduces', siblings: 'siblings' }[r] || r }; }
-    case 'modeWord': case 'occurs': case 'linkWord': case 'affects': {
-      const m = oneMode(); if (!m) return { got: null, why: `P=[${A.P}]` };
-      const slot = { modeWord: 'mode', occurs: 'occurs', linkWord: 'link', affects: 'affects' }[c.t];
-      const v = Object.keys(G.CLOZE).find(v => JSON.stringify([...G.CLOZE[v][slot]].sort()) === JSON.stringify([...opts].sort()));
-      const ks = v && G.clozeKeys(ch, m, v);
-      return { got: ks ? ks[['mode', 'occurs', 'link', 'affects'].indexOf(slot)] : null, why: `${m} ${v || 'no matching option set'}` };
-    }
-    case 'bbShape': { const m = oneMode(); return { got: m === 'AD' ? 'white' : m === 'AR' ? ch.fill : null, why: `P=[${A.P}]` }; }
-    case 'saq': {
-      const m = oneMode(); const r = G.solve(ch, 'AD');
-      const dad = G.genoText('AD', by.dad, r.sets.dad, { L: c.L }, 'nei'), mum = G.genoText('AD', by.mum, r.sets.mum, { L: c.L }, 'nei');
-      const v = G.coupleProb(ch, 'AD', 'dad', 'mum', 'child');
-      return { got: `${m}|${dad}|${mum}|${PCT(v)}`, want: `${c.mode}|${c.dad}|${c.mum}|${c.pct}` };
-    }
-  }
-  return { got: null, why: 'unknown check ' + c.t };
-}
 section('4 calibration (her charts, her keys)', () => {
   const chs = {}; HER.forEach(s => chs[s.id] = G.parseChart(s));
   let n = 0;
@@ -309,7 +243,7 @@ section('4 calibration (her charts, her keys)', () => {
     for (const it of items) {
       n++;
       const want = it.c.key || it.key;
-      const r = herCheck(chs, s, q, it.c, want, it.opts || []);
+      const r = G.herCheck(chs, s, q, it.c, want, it.opts || []);
       const w = r.want || want;
       ok(r.got === w, `${it.label}: her key "${w}", engine "${r.got}"${r.why ? '  [' + r.why + ']' : ''}`);
     }
