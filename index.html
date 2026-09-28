@@ -201,6 +201,18 @@ figure.fig figcaption{font-size:.76rem;color:var(--muted-fg);margin:5px 2px 0}
 .chip2{display:inline-block;font-size:.72rem;padding:1px 8px;border-radius:99px;background:var(--accent);color:var(--muted-fg);margin:0 4px 4px 0}
 .done{text-align:center;padding:20px 10px}
 .done .big{font-size:2rem;font-weight:800}
+.qbody.solo{max-width:720px;margin:0 auto 12px}
+.sqcard{background:var(--card)}
+.sqcard.spot{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.sqcard .sq{margin:4px 0}
+.bchips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 8px}
+.chipb{font:inherit;font-weight:700;font-size:1.05rem;min-width:52px;min-height:44px;border-radius:10px;border:1px solid var(--primary);background:var(--card);color:var(--fg);cursor:pointer}
+.chipb.on{background:var(--primary);color:var(--onprimary)}
+.sq.build th,.sq.build td{padding:4px}
+.bslot,.bcell{font:inherit;font-weight:700;font-size:1rem;min-width:60px;min-height:48px;border-radius:8px;border:1.5px dashed var(--border);background:var(--card);color:var(--fg);cursor:pointer}
+.bslot{border-color:var(--primary);color:var(--primary)}
+.bslot.set,.bcell.set{border-style:solid}
+.bslot.k,.bcell.k{border:2px solid var(--ok)} .bslot.x,.bcell.x{border:2px solid var(--danger)}
 .sliprow{display:flex;justify-content:space-between;gap:8px;font-size:.86rem;padding:5px 0;border-bottom:1px dashed var(--border)}
 </style>
 </head>
@@ -342,7 +354,30 @@ const PED_ROWS = [
   ['ped-bb', '🎨', 'Which coloured shape is the bb?', 'Her revision deck, slides 59 and 79'],
   ['ped-mt', '🧫', 'Mitochondrial', 'From a chart: who passes mtDNA on?']
 ];
-const TYPE_LABEL = Object.fromEntries(PED_ROWS.map(r => [r[0], r[2]]));
+const PUN_ROWS = [
+  ['pun-build', '▦', 'Build the square', 'Tap the gametes onto the top and side, then fill every box'],
+  ['pun-read', '👓', 'Read the square', 'Genotypic vs phenotypic ratio, %, gametes and zygotes'],
+  ['pun-fwd', '🐄', 'Word problems', 'Her costumes: cattle, tomatoes, peas, guinea pigs, PKU; P1, F1, F2'],
+  ['pun-back', '⏪', 'Working backwards', 'A relative or the offspring tells you a hidden allele'],
+  ['pun-test', '🐕', 'Test cross', 'Her hearing-dog question: DD or Dd × dd'],
+  ['pun-spot', '🔍', 'Spot the right square', 'Squares I to IV: which one is correct?'],
+  ['pun-xl', '🩸', 'X-linked crosses', 'Colour blindness, haemophilia: son vs child vs affected son'],
+  ['pun-abo', '🅾️', 'ABO blood groups', 'Both notations: AO and Iᴬi'],
+  ['pun-pat', '🌸', 'Incomplete dominance, codominance, polygenic', 'Pink flowers, AB blood, skin colour, sickle cell (her key)'],
+  ['pun-indep', '🎯', 'Every child is a fresh chance', 'The 4th child has the same chance as the 1st']
+];
+const TYPE_LABEL = Object.fromEntries(PED_ROWS.concat(PUN_ROWS).map(r => [r[0], r[2]]));
+function punList() {
+  const log = logGet();
+  const stat = ty => { const xs = log.filter(e => e.ty === ty); return xs.length ? `${xs.filter(e => e.ok).length}/${xs.length} right` : 'not tried yet'; };
+  return `<div class="shead"><button class="btn ghost" data-nav="">‹ Home</button><h2>▦ Punnett squares</h2></div>
+    <div class="card"><p class="lead">One-gene crosses in her shapes. Her arithmetic never goes past 0, 25, 50, 75 or 100%, and neither does this.</p>
+    <details class="how"><summary>How this works</summary>
+    <p>Every cross is made up on the spot and every key comes from the square itself. Each wrong option is what a named mistake gives: reading a genotypic ratio for a phenotypic one (W7), forgetting a hidden carrier (W1), son vs child (W6), and so on. After any answer, ▦ Show the square draws it.</p>
+    <p>Her bank never asks a dihybrid (two-gene) cross, so there are none here.</p></details></div>
+    <button class="lrow" data-drill="mixedPun"><span class="lic">🔀</span><span class="ltx"><b>Mixed: all of them</b><small>A round across every Punnett shape</small></span><span class="lch">›</span></button>
+    ${PUN_ROWS.map(([ty, ic, t, sub]) => `<button class="lrow" data-drill="${ty}"><span class="lic">${ic}</span><span class="ltx"><b>${esc(t)}</b><small>${esc(sub)} · ${stat(ty)}</small></span><span class="lch">›</span></button>`).join('')}`;
+}
 function pedList() {
   const log = logGet();
   const stat = ty => { const xs = log.filter(e => e.ty === ty); return xs.length ? `${xs.filter(e => e.ok).length}/${xs.length} right` : 'not tried yet'; };
@@ -359,8 +394,8 @@ function makeQ(type, o) {
   o = o || {};
   const R = GEN.rng((Math.random() * 2 ** 31) | 0);
   for (let t = 0; t < 8; t++) {
-    const ty = type === 'mixed' ? R.weighted(MIXED) : type;
-    const T = GEN.PED_TYPES[ty];
+    const ty = type === 'mixed' ? R.weighted(MIXED) : type === 'mixedPun' ? R.pick(Object.keys(GEN.PUN_TYPES)) : type;
+    const T = GEN.PED_TYPES[ty] || GEN.PUN_TYPES[ty];
     const mode = o.mode || R.pick(T.modes);
     const premise = ty === 'ped-geno' ? (o.premise !== undefined ? o.premise : R.weighted([[null, 5], ['mode', 3], ['shade', 2]])) : null;
     const q = GEN.make(ty, R, { mode, premise });
@@ -377,7 +412,8 @@ function startSit(title, next, n) {
 function addItem() {
   const q = SIT.next(SIT.items.length);
   if (!q) return false;
-  SIT.items.push({ q, st: { pick: null, done: false, taps: [], blanks: q.blanks ? q.blanks.map(() => null) : null, open: null, marks: {}, focus: null } });
+  SIT.items.push({ q, st: { pick: null, done: false, taps: [], blanks: q.blanks ? q.blanks.map(() => null) : null, open: null, marks: {}, focus: null,
+    top: [null, null], side: [null, null], cells: [[null, null], [null, null]], chip: null } });
   return true;
 }
 const cur = () => SIT && SIT.items[SIT.i];
@@ -404,6 +440,31 @@ function chartHTML(it) {
   if (q.chart.shadingMeans === 'homozygous-recessive') cap = 'Shaded = a homozygous recessive genotype';
   return `<div class="chartbox${tap ? ' tap' : ''}" id="cbox">${GEN.svg(q.chart, o)}</div>${cap ? `<div class="meta" style="margin-top:4px">${cap}</div>` : ''}`;
 }
+/* what sits in the left column: a chart, a finished square to read, or squares I-IV; nothing for a word problem */
+function figHTML(it) {
+  const { q } = it;
+  if (q.chart || q.charts) return chartHTML(it);
+  if (q.showSquare) return `<div class="card sqcard">${squareHTML(q.square, true)}</div>`;
+  if (q.squares) return `<div class="card sqcard spot">${q.squares.map((s, i) => `<div><b>Square ${['I', 'II', 'III', 'IV'][i]}</b>${sqTable(s.top, s.side, s.cells)}</div>`).join('')}</div>`;
+  return '';
+}
+const sqTable = (top, side, cells) => `<table class="sq" aria-label="Punnett square"><tr><th></th>${top.map(g => `<th>${esc(g)}</th>`).join('')}</tr>${side.map((g, i) => `<tr><th>${esc(g)}</th>${cells[i].map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table>`;
+/* build the square: tap a gamete chip, then a slot on the top or side; then tap each box to cycle its genotype */
+function buildHTML(it) {
+  const { q, st } = it, P = q.P;
+  const slot = (k, i, v) => `<button class="bslot${v ? ' set' : ''}${st.done ? (bOK(q, st)[k] ? ' k' : ' x') : ''}" data-slot="${k}${i}"${st.done ? ' disabled' : ''}>${v ? esc(v) : '＋'}</button>`;
+  const cell = (i, j) => { const v = st.cells[i][j]; const exp = st.top[j] && st.side[i] ? GEN.joinG(q.fam, st.top[j], st.side[i]) : null;
+    return `<button class="bcell${v ? ' set' : ''}${st.done ? (v && v === exp && bOK(q, st).gam ? ' k' : ' x') : ''}" data-cell="${i},${j}"${st.done ? ' disabled' : ''}>${v ? esc(v) : '?'}</button>`; };
+  const grid = `<table class="sq build"><tr><th></th><th>${slot('t', 0, st.top[0])}</th><th>${slot('t', 1, st.top[1])}</th></tr>
+    <tr><th>${slot('s', 0, st.side[0])}</th><td>${cell(0, 0)}</td><td>${cell(0, 1)}</td></tr><tr><th>${slot('s', 1, st.side[1])}</th><td>${cell(1, 0)}</td><td>${cell(1, 1)}</td></tr></table>`;
+  const chips = st.done ? '' : `<div class="bchips"><span class="meta">Gametes:</span>${q.chips.map(c => `<button class="chipb${st.chip === c ? ' on' : ''}" data-chip="${esc(c)}">${esc(c)}</button>`).join('')}</div>`;
+  const ready = st.top.every(Boolean) && st.side.every(Boolean) && st.cells.flat().every(Boolean);
+  return `${chips}<div class="meta">${st.done ? '' : st.chip ? `Now tap a ＋ on the top or the side for ${esc(st.chip)}.` : 'Tap a gamete, then a ＋. Then tap each box to set it.'}</div>${grid}
+    ${st.msg ? `<div class="note">${esc(st.msg)}</div>` : ''}
+    ${st.done ? (it.st.ok ? '' : `<div class="meta">The square:</div>${squareHTML({ fam: q.fam, f: q.args.g1, m: q.args.g2 })}`) : `<button class="btn primary wide" id="ckBuild"${ready ? '' : ' disabled'}>Check</button>`}`;
+}
+const sameSet = (a, b) => a.slice().sort().join() === b.slice().sort().join();
+function bOK(q, st) { const t = sameSet(st.top, q.P.top), s = sameSet(st.side, q.P.side); return { t, s, gam: t && s }; }
 function stemHTML(q) {
   if (q.type === 'ped-cloze') return '';
   return `<div class="stem">${esc(q.stem)}</div>`;
@@ -464,9 +525,9 @@ function fbHTML(it) {
   const verdict = st.ok ? '✓ Right' : keyText ? `✗ The answer is ${keyText}` : '✗ Not quite';
   return `<div class="fb ${st.ok ? 'right' : 'wrong'}"><div class="verdict">${esc(verdict)}</div>${parts.join('')}${evHTML(it)}${st.sq ? squareHTML(q.square) : ''}<div class="fbacts">${acts.join('')}</div></div>`;
 }
-function squareHTML(s) {
+function squareHTML(s, plain) {
   const P = GEN.punnett(s.fam, s.f, s.m);
-  return `<table class="sq" aria-label="Punnett square"><tr><th></th>${P.top.map(g => `<th>${esc(g)}</th>`).join('')}</tr>${P.side.map((g, i) => `<tr><th>${esc(g)}</th>${P.cells[i].map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table><div class="meta">Father ${esc(s.f)} across the top, mother ${esc(s.m)} down the side.</div>`;
+  return sqTable(P.top, P.side, P.cells) + `<div class="meta">${plain ? `${esc(s.f)} across the top, ${esc(s.m)} down the side.` : s.fam === 'xl' || s.fam === 'xld' ? `Father ${esc(s.f)} across the top, mother ${esc(s.m)} down the side.` : `${esc(s.f)} across the top, ${esc(s.m)} down the side.`}</div>`;
 }
 /* tap the evidence (§5.3.2): checked against the witnesses */
 function evAgainst(q) { return [...new Set(q.args.opts.flatMap(o => GEN.modesOf(o) || []))].filter(m => !q.keySet.includes(m)); }
@@ -498,10 +559,12 @@ function sitView() {
   if (q.opts) body += optsHTML(it);
   else if (q.type === 'ped-cloze') body += clozeHTML(it);
   else if (q.type === 'ped-all') body = stemHTML(q) + allHTML(it);
+  else if (q.type === 'pun-build') body += buildHTML(it);
   body += fbHTML(it);
+  const fig = figHTML(it);
   const pips = SIT.items.map((x, i) => `<span class="pip${i === SIT.i ? ' cur' : ''}${x.st.done ? (x.st.ok ? ' ok' : ' bad') : ''}"></span>`).join('') + Array.from({ length: Math.max(0, SIT.n - SIT.items.length) }, () => '<span class="pip"></span>').join('');
   return `<div class="qhead"><button class="btn ghost" id="leave" style="padding:5px 11px">‹ Leave</button><span class="n">${SIT.i + 1} / ${SIT.n}</span><span class="ty">${esc(SIT.title)}${SIT.title !== lab ? ' · ' + esc(lab) : ''}</span></div>
-    <div class="qgrid"><div class="qchart">${chartHTML(it)}</div><div class="qbody card">${body}</div></div>
+    ${fig ? `<div class="qgrid"><div class="qchart">${fig}</div><div class="qbody card">${body}</div></div>` : `<div class="qbody card solo">${body}</div>`}
     <div class="pips" aria-hidden="true">${pips}</div>`;
 }
 function doneView() {
@@ -538,12 +601,16 @@ function nextQ() {
 function copyText(it) {
   const { q, st } = it;
   const lines = [`HS2 Genetics Trainer · ${TYPE_LABEL[q.type] || q.type}`, ''];
-  const chs = q.charts || [q.chart];
+  const chs = q.charts || (q.chart ? [q.chart] : []);
+  if (q.square) lines.push('The cross: ' + q.square.f + ' × ' + q.square.m, '');
   chs.forEach((ch, i) => { lines.push(q.charts ? `Chart ${'AB'[i]}:` : 'The chart:'); lines.push(GEN.describe(ch, q.premise === 'mode' ? q.mode : null)); lines.push(''); });
   if (q.type === 'ped-cloze') {
     lines.push('Question: ' + q.stem.replace(/\[(\d)\]/g, (m, i) => '[' + q.blanks[i].opts.map(o => o.t).join(' / ') + ']'));
     lines.push('My answers: ' + st.blanks.map((v, i) => v == null ? '(blank)' : q.blanks[i].opts[v].t).join(' | '));
     lines.push('Key: ' + q.blanks.map(b => b.opts[b.key].t).join(' | '));
+  } else if (q.type === 'pun-build') {
+    lines.push('Question: ' + q.stem);
+    lines.push('Right square: ' + JSON.stringify(q.P.cells) + '   Mine: top ' + st.top.join(',') + ' side ' + st.side.join(',') + ' boxes ' + JSON.stringify(st.cells));
   } else if (q.type === 'ped-all') {
     lines.push('Question: ' + q.stem);
     lines.push('Key: ' + q.people.map(p => GEN.nameOf(q.chart, p.id) + ' ' + p.key).join(', '));
@@ -616,6 +683,7 @@ function homeView() {
   return `${idCard()}
     <div class="lsec">Practise</div>
     <button class="lrow" data-nav="ped"><span class="lic">🌳</span><span class="ltx"><b>Pedigree drills</b><small>${log.filter(e => e.sk === 'pedigree' || e.sk === 'sexlinked' || e.sk === 'mito').length} answered so far · 11 question shapes</small></span><span class="lch">›</span></button>
+    <button class="lrow" data-nav="pun"><span class="lic">▦</span><span class="ltx"><b>Punnett squares</b><small>${log.filter(e => /^pun/.test(e.ty)).length} answered so far · 10 question shapes</small></span><span class="lch">›</span></button>
     <div class="lsec">Look at her charts</div>
     <button class="lrow" data-nav="her"><span class="lic">🖼️</span><span class="ltx"><b>Her charts</b><small>${HER_GROUPS.length} figures from her bank, redrawn, with her ${n} questions</small></span><span class="lch">›</span></button>
     <div class="note">Build in progress (P3): Punnett squares, the two doors and the Test 3 set come next. Only what works today is shown.</div>`;
@@ -635,14 +703,15 @@ function render() {
   if (a === 'her' && b && HER_GROUPS.some(g => g.ids.includes(b))) main.innerHTML = herView(b);
   else if (a === 'her') main.innerHTML = herList();
   else if (a === 'ped') main.innerHTML = pedList();
+  else if (a === 'pun') main.innerHTML = punList();
   else main.innerHTML = homeView();
-  document.title = a === 'her' ? 'Her charts · HS2 Genetics' : a === 'ped' ? 'Pedigree drills · HS2 Genetics' : 'HS2 Genetics · Trainer';
+  document.title = a === 'her' ? 'Her charts · HS2 Genetics' : a === 'ped' ? 'Pedigree drills · HS2 Genetics' : a === 'pun' ? 'Punnett squares · HS2 Genetics' : 'HS2 Genetics · Trainer';
 }
 document.addEventListener('click', e => {
   const t = e.target;
   const n = t.closest('[data-nav]'); if (n) { nav(n.dataset.nav); return; }
   const h = t.closest('[data-her]'); if (h) { nav('her/' + h.dataset.her); return; }
-  const d = t.closest('[data-drill]'); if (d) { const ty = d.dataset.drill; startSit(ty === 'mixed' ? 'Mixed pedigree round' : TYPE_LABEL[ty], () => makeQ(ty)); return; }
+  const d = t.closest('[data-drill]'); if (d) { const ty = d.dataset.drill; startSit(ty === 'mixed' ? 'Mixed pedigree round' : ty === 'mixedPun' ? 'Mixed Punnett round' : TYPE_LABEL[ty], () => makeQ(ty)); return; }
   if (route() !== 'sit' || !SIT) return;
   const it = cur();
   if (t.closest('#leave')) { SIT = null; nav(''); return; }
@@ -667,6 +736,29 @@ document.addEventListener('click', e => {
     const w0 = wrong.find(p => st.marks[p.id] != null);
     const sl0 = w0 && GEN.allSlip(q.mode, by[w0.id], w0.set, w0.cycle[st.marks[w0.id]], sty);
     st.slip = st.ok ? null : sl0 || 'W9'; st.tagged = !!sl0;
+    record(q, st.ok, st.slip); paintSit(); return;
+  }
+  const chip = t.closest('[data-chip]'); if (chip && !st.done) { st.chip = st.chip === chip.dataset.chip ? null : chip.dataset.chip; st.msg = ''; paintSit(); return; }
+  const sl = t.closest('[data-slot]'); if (sl && !st.done) {
+    const k = sl.dataset.slot[0], i = +sl.dataset.slot[1], arr = k === 't' ? st.top : st.side;
+    if (!st.chip) { arr[i] = null; st.msg = 'Pick a gamete first, then tap where it goes.'; paintSit(); return; }
+    arr[i] = st.chip;
+    const par = k === 't' ? q.args.g1 : q.args.g2, pg = k === 't' ? q.P.top : q.P.side;
+    st.msg = pg.includes(st.chip) ? '' : `${par} cannot make a ${st.chip} gamete: a gamete carries ONE allele from that parent (${pg.join(' or ')}).`;
+    st.chip = null; paintSit(); return;
+  }
+  const ce = t.closest('[data-cell]'); if (ce && !st.done) {
+    const [i, j] = ce.dataset.cell.split(',').map(Number), opts = q.cellOpts, v = st.cells[i][j];
+    st.cells[i][j] = opts[(opts.indexOf(v) + 1) % opts.length];
+    const exp = st.top[j] && st.side[i] ? GEN.joinG(q.fam, st.top[j], st.side[i]) : null;
+    st.msg = exp && st.cells[i][j] !== exp ? 'Each box takes ONE letter from the top and ONE from the side.' : '';
+    paintSit(); return;
+  }
+  if (t.closest('#ckBuild')) {
+    const g = bOK(q, st);
+    const cellsOK = st.cells.every((r, i) => r.every((v, j) => v === GEN.joinG(q.fam, st.top[j], st.side[i])));
+    st.done = true; st.ok = g.gam && cellsOK; st.slip = st.ok ? null : 'W7'; st.tagged = false;
+    st.msg = st.ok ? '' : !g.gam ? 'A gamete is wrong: each parent gives ONE allele per gamete, so Bb makes B and b.' : 'A box is wrong: each box takes ONE letter from the top and ONE from the side.';
     record(q, st.ok, st.slip); paintSit(); return;
   }
   if (t.closest('#evStart')) { st.ev = 'on'; st.taps = []; paintSit(); return; }

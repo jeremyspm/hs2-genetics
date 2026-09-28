@@ -1400,6 +1400,392 @@ const PED_TYPES = {
   'ped-mt': { label: 'Mitochondrial', make: mtQ, modes: ['MT'] }
 };
 GEN.PED_TYPES = PED_TYPES;
+/* ── Punnett questions (§5.4) ───────────────────────────────────────────────────────────
+   Same contract as the pedigree ones: args say everything, DERIVE[type](null, args) re-derives the key and the
+   slip-tagged distractors from the args alone. One gene only (her bank never asks a dihybrid cross). */
+const COSTUMES = [
+  { id: 'cattle', L: 'H', adj: true, dom: 'hornless', rec: 'horned', one: 'calf', many: 'calves', dad: 'bull', mum: 'cow' },
+  { id: 'tomato', L: 'R', dom: 'red fruit', rec: 'yellow fruit', one: 'plant', many: 'plants' },
+  { id: 'pea', L: 'T', adj: true, dom: 'tall', rec: 'short', one: 'plant', many: 'plants' },
+  { id: 'rose', L: 'R', dom: 'red flowers', rec: 'white flowers', one: 'plant', many: 'plants' },
+  { id: 'guinea', L: 'S', alt: 'H', dom: 'short hair', rec: 'long hair', one: 'guinea pig', many: 'guinea pigs', dad: 'male', mum: 'female' },
+  { id: 'cat', L: 'B', dom: 'black fur', rec: 'brown fur', one: 'kitten', many: 'kittens', dad: 'tom', mum: 'queen' },
+  { id: 'corn', L: 'K', dom: 'purple kernels', rec: 'yellow kernels', one: 'plant', many: 'plants' },
+  { id: 'tongue', L: 'R', dom: 'can roll their tongue', rec: 'cannot roll their tongue', human: true },
+  { id: 'freckles', L: 'D', dom: 'freckles', rec: 'no freckles', human: true },
+  { id: 'peak', L: 'M', dom: "a widow's peak", rec: "no widow's peak", human: true },
+  { id: 'lobes', L: 'E', dom: 'suspended earlobes', rec: 'attached earlobes', human: true },
+  { id: 'eyes', L: 'B', dom: 'brown eyes', rec: 'blue eyes', human: true },
+  { id: 'hair', L: 'D', dom: 'dark hair', rec: 'blond hair', human: true },
+  { id: 'pku', L: 'N', dom: 'no PKU', rec: 'PKU', human: true, disease: 'PKU', recDisease: true },
+  { id: 'cf', L: 'A', dom: 'no cystic fibrosis', rec: 'cystic fibrosis', human: true, disease: 'cystic fibrosis', recDisease: true },
+  { id: 'tay', L: 'T', dom: 'no Tay-Sachs', rec: 'Tay-Sachs', human: true, disease: 'Tay-Sachs', recDisease: true },
+  { id: 'alb', L: 'A', dom: 'normal pigment', rec: 'albinism', human: true, disease: 'albinism', recDisease: true },
+  { id: 'hd', L: 'H', dom: "Huntington's disease", rec: "no Huntington's disease", human: true, disease: "Huntington's disease", domDisease: true }
+];
+GEN.COSTUMES = COSTUMES;
+const costume = id => COSTUMES.find(c => c.id === id);
+const SPECIES = { cattle: 'cattle', tomato: 'tomatoes', pea: 'pea plants', rose: 'roses', guinea: 'guinea pigs', cat: 'cats', corn: 'corn' };
+/* the phenotype after "will": be tall, have red fruit, be able to roll their tongue */
+const will = (c, x) => /^can /.test(x) ? 'be able to ' + x.slice(4) : /^cannot /.test(x) ? 'not be able to ' + x.slice(7) : (c.adj ? 'be ' : 'have ') + x;
+const an = w => /^[AEIOaeio]|^I[ᴬᴮ]|^i/.test(w) ? 'an ' + w : 'a ' + w;
+const G3 = L => [L + L, L + L.toLowerCase(), L.toLowerCase() + L.toLowerCase()];
+function autoP(c, g1, g2) { return punnett('auto', g1, g2, { dom: c.dom, rec: c.rec }); }
+const genoRatio = (P, L) => { const o = G3(L).filter(g => P.geno[g]); return o.map(g => (o.length === 1 ? '100% ' : pct(P.geno[g] / 4) + ' ') + g).join(', '); };
+const phenRatio = (P, c) => { const o = [c.dom, c.rec].filter(k => P.phen[k]); return o.map(k => pct(P.phen[k] / 4) + ' ' + k).join(', '); };
+/* how a parent is described: genotype, words, or phenotype (+ a relative, for working backwards) */
+function parentWords(c, g, how, who) {
+  const L = c.L, l = L.toLowerCase(), k = g.split('').filter(x => x === L).length;
+  const noun = who || 'parent';
+  if (how === 'geno') return `${an(g)} ${noun}`;
+  if (how === 'words') return k === 2 ? `a homozygous dominant ${noun}` : k === 1 ? `a heterozygous ${noun}` : `a homozygous recessive ${noun}`;
+  if (how === 'breeding') return k === 1 ? `a heterozygous ${noun}` : `a true-breeding ${noun} with ${k ? c.dom : c.rec}`;
+  if (how === 'carrier') return k === 1 ? `a ${noun} who is a carrier` : k === 2 ? `a ${noun} with no family history of ${c.disease}` : `a ${noun} with ${c.disease}`;
+  const ph = k ? c.dom : c.rec;
+  return `a ${noun} that ${c.adj ? 'is ' + ph : /^can/.test(ph) ? ph : 'has ' + ph}`;
+}
+const PUN_DERIVE = {
+  /* forward: parents given, ask a %, a fraction or a ratio */
+  'pun-fwd'(a) {
+    const c = costume(a.cost), P = autoP(c, a.g1, a.g2), tagged = [];
+    const dom = (P.phen[c.dom] || 0) / 4, rec = (P.phen[c.rec] || 0) / 4;
+    let key;
+    if (a.ask === 'pctDom') key = pct(dom); if (a.ask === 'pctRec') key = pct(rec);
+    if (a.ask === 'fracRec') key = FRAC[rec]; if (a.ask === 'fracDom') key = FRAC[dom];
+    if (a.ask === 'geno') { key = genoRatio(P, c.L); tagged.push({ t: phenRatio(P, c), slip: 'W7' }); }
+    if (a.ask === 'pheno') { key = phenRatio(P, c); tagged.push({ t: genoRatio(P, c.L), slip: 'W7' }); }
+    // W1: a carrier (heterozygous, recessive disease) read as having no copy
+    if (c.recDisease && (a.g1.includes(c.L.toLowerCase()) || a.g2.includes(c.L.toLowerCase())) && (a.how1 === 'carrier' || a.how2 === 'carrier')) {
+      const fix = g => (g[0] === c.L && g[1] !== c.L) ? c.L + c.L : g;
+      const P2 = autoP(c, a.how1 === 'carrier' ? fix(a.g1) : a.g1, a.how2 === 'carrier' ? fix(a.g2) : a.g2);
+      const v = { pctDom: pct((P2.phen[c.dom] || 0) / 4), pctRec: pct((P2.phen[c.rec] || 0) / 4), fracRec: FRAC[(P2.phen[c.rec] || 0) / 4], fracDom: FRAC[(P2.phen[c.dom] || 0) / 4] }[a.ask];
+      if (v) tagged.push({ t: v, slip: 'W1' });
+    }
+    return { ok: key != null, key, tagged: tagged.filter(x => x.t !== key), correct: t => t === key };
+  },
+  /* working backwards: a family history (or offspring) to a genotype */
+  'pun-back'(a) {
+    const c = costume(a.cost), L = c.L, l = L.toLowerCase();
+    let key, tagged = [];
+    if (a.kind === 'relRec') { key = L + l; tagged = [{ t: L + L, slip: 'W3' }, { t: L + '?', slip: 'W8' }]; }        // shows the dominant, a parent (or child) is recessive
+    else if (a.kind === 'selfRec') { key = l + l; tagged = [{ t: L + l, slip: 'W3' }]; }                              // shows the recessive: the parents don't matter
+    else if (a.kind === 'litter') { key = 'heterozygous'; tagged = [{ t: 'homozygous dominant', slip: 'W3' }]; }      // one recessive parent, a mixed litter
+    else if (a.kind === 'bothDomKidRec') { key = 'both heterozygous'; tagged = [{ t: 'both homozygous dominant', slip: 'W3' }, { t: 'one heterozygous, one homozygous dominant', slip: 'W1' }]; }
+    return { ok: !!key, key, tagged, correct: t => t === key };
+  },
+  /* the test cross (her 16-mark hearing dog): DD or Dd × dd */
+  'pun-test'(a) {
+    let key, tagged = [];
+    if (a.ask === 'which') { key = 'Dd'; tagged = [{ t: 'DD', slip: 'W3' }, { t: 'Not enough information given', slip: 'W8' }]; }
+    else { const P = punnett('auto', a.g, 'dd', { dom: 'hearing', rec: 'deaf' }); key = pct((P.phen.deaf || 0) / 4); tagged = []; if (a.g === 'Dd') tagged.push({ t: '25%', slip: 'W7' }); }
+    return { ok: true, key, tagged, correct: t => t === key };
+  },
+  /* X-linked (colour blindness, haemophilia): child vs son vs affected son */
+  'pun-xl'(a) {
+    const L = a.L, fg = 'X' + (a.fd ? SUPL[L.toLowerCase()] : SUPU[L]) + 'Y';
+    const mg = 'X' + (a.md === 2 ? SUPL[L.toLowerCase()] : SUPU[L]) + 'X' + (a.md >= 1 ? SUPL[L.toLowerCase()] : SUPU[L]);
+    const P = punnett('xl', fg, mg);
+    const val = { child: P.pChildAff, son: P.pSonAff, dau: P.pDauAff, affson: P.pAffSon, cardau: P.pCarrierDau * 2 };
+    const key = pct(val[a.ask]), tagged = [];
+    for (const k of ['child', 'son', 'affson', 'dau']) if (k !== a.ask && (a.ask !== 'cardau')) tagged.push({ t: pct(val[k]), slip: 'W6' });
+    // W2: a son given his father's X
+    if (a.ask === 'son' && a.fd && a.md === 0) tagged.push({ t: '100%', slip: 'W2' });
+    // W1: a carrier mother read as having no copy
+    if (a.md === 1) { const P2 = punnett('xl', fg, 'X' + SUPU[L] + 'X' + SUPU[L]); const v2 = { child: P2.pChildAff, son: P2.pSonAff, dau: P2.pDauAff, affson: P2.pAffSon, cardau: P2.pCarrierDau * 2 }[a.ask]; tagged.push({ t: pct(v2), slip: 'W1' }); }
+    const seen = new Set([key]);
+    return { ok: isQuarter(val[a.ask]), key, fg, mg, tagged: tagged.filter(x => !seen.has(x.t) && (seen.add(x.t) || true)), correct: t => t === key };
+  },
+  /* ABO, both notations */
+  'pun-abo'(a) {
+    const P = punnett('abo', a.g1, a.g2), tagged = [];
+    let key;
+    if (a.ask === 'pct') key = pct((P.phen[a.type] || 0) / 4);
+    if (a.ask === 'possible') key = aboList(Object.keys(P.phen));
+    if (a.ask === 'back') { key = a.key; tagged.push({ t: a.wrong, slip: 'W3' }); }
+    // W1: an A or B parent read as having no hidden O
+    if (a.ask !== 'back') {
+      const hide = g => g.replace(/^(A|Iᴬ)(O|i)$/, (m, x) => x + x).replace(/^(B|Iᴮ)(O|i)$/, (m, x) => x + x);
+      if (hide(a.g1) !== a.g1 || hide(a.g2) !== a.g2) {
+        const P2 = punnett('abo', hide(a.g1), hide(a.g2));
+        tagged.push({ t: a.ask === 'pct' ? pct((P2.phen[a.type] || 0) / 4) : aboList(Object.keys(P2.phen)), slip: 'W1' });
+      }
+    }
+    return { ok: true, key, tagged: tagged.filter(x => x.t !== key), correct: t => t === key };
+  },
+  /* incomplete dominance crosses and naming the pattern */
+  'pun-pat'(a) {
+    if (a.kind === 'name') { const E = PAT_EX.find(e => e.id === a.ex); return { ok: true, key: E.key, tagged: E.trap ? [{ t: E.trap, slip: null }] : [], correct: t => t === E.key }; }
+    const P = punnett('inc', a.g1, a.g2, { names: { R: a.n1, W: a.n2 }, het: a.het });
+    const key = pct((P.phen[a.want] || 0) / 4);
+    return { ok: true, key, tagged: [], correct: t => t === key };
+  },
+  /* independence: every pregnancy is a new square */
+  'pun-indep'(a) {
+    const P = punnett('auto', a.g1, a.g2, { dom: 'd', rec: 'r' }); const v = (P.phen.r || 0) / 4;
+    const key = pct(v);
+    const tagged = [{ t: a.had ? `less than ${key}, because they have already had one` : `less than ${key}, because the chance falls with each child`, slip: 'W6' }];
+    if (a.had) tagged.push({ t: '0%, the 1 in 4 has been used up', slip: 'W6' });
+    return { ok: true, key, tagged, correct: t => t === key };
+  },
+  /* read a filled square */
+  'pun-read'(a) {
+    const c = costume(a.cost), P = autoP(c, a.g1, a.g2);
+    let key, tagged = [];
+    if (a.ask === 'geno') { key = genoRatio(P, c.L); tagged.push({ t: phenRatio(P, c), slip: 'W7' }); }
+    if (a.ask === 'pheno') { key = phenRatio(P, c); tagged.push({ t: genoRatio(P, c.L), slip: 'W7' }); }
+    if (a.ask === 'terms') { key = 'gametes, and inside are the zygotes'; tagged.push({ t: 'zygotes, and inside are the gametes', slip: 'W7' }); }
+    if (a.ask === 'het') { key = pct((P.geno[c.L + c.L.toLowerCase()] || 0) / 4); tagged.push({ t: pct((P.phen[c.dom] || 0) / 4), slip: 'W7' }); }
+    return { ok: true, key, tagged: tagged.filter(x => x.t !== key), correct: t => t === key };
+  },
+  /* spot the wrong square: squares I–IV, one right */
+  'pun-spot'(a) {
+    const right = punnett('auto', a.g1, a.g2).cells;
+    const idx = a.squares.findIndex(s => JSON.stringify(s.cells) === JSON.stringify(right) && s.top.join() === punnett('auto', a.g1, a.g2).top.join() && s.side.join() === punnett('auto', a.g1, a.g2).side.join());
+    const key = idx >= 0 ? 'Square ' + ['I', 'II', 'III', 'IV'][idx] : null;
+    return { ok: idx >= 0 && a.squares.filter(s => JSON.stringify(s.cells) === JSON.stringify(right)).length === 1, key, tagged: [], correct: t => t === key };
+  }
+};
+Object.assign(DERIVE, Object.fromEntries(Object.entries(PUN_DERIVE).map(([k, f]) => [k, (ch, a) => f(a)])));
+function aboList(types) { const o = ['A', 'B', 'AB', 'O'].filter(t => types.includes(t)); return o.length === 1 ? 'only ' + o[0] : o.slice(0, -1).join(', ') + ' or ' + o[o.length - 1]; }
+const PAT_EX = [
+  { id: 'pink', t: 'A red-flowered plant crossed with a white-flowered plant gives all pink offspring.', key: 'incomplete dominance', trap: 'codominance' },
+  { id: 'wavy', t: 'A curly-haired parent and a straight-haired parent have a child with wavy hair.', key: 'incomplete dominance', trap: 'codominance' },
+  { id: 'sickle', t: 'In her bank, sickle cell trait (one sickle allele: some sickled cells, milder signs) is an example of…', key: 'incomplete dominance', note: 'Her key says incomplete dominance for sickle cell; some textbooks call the trait codominant.' },
+  { id: 'ab', t: 'A person with type AB blood has both A and B antigens on their red cells.', key: 'codominance', trap: 'incomplete dominance' },
+  { id: 'roan', t: 'A red bull and a white cow have a calf with red and white patches.', key: 'codominance', trap: 'incomplete dominance' },
+  { id: 'skin', t: 'Skin colour shows continuous variation, from very light to very dark, controlled by many genes each with a small effect.', key: 'polygenic inheritance', trap: 'multiple alleles' },
+  { id: 'height', t: 'Height in a population forms a bell curve: not just short and tall, but a huge range.', key: 'polygenic inheritance', trap: 'multiple alleles' },
+  { id: 'abo3', t: 'The ABO gene has three alleles in the population (A, B and O), although each person has only two.', key: 'multiple alleles', trap: 'polygenic inheritance' }
+];
+const PAT_OPTS = ['incomplete dominance', 'codominance', 'polygenic inheritance', 'multiple alleles', 'complete dominance'];
+
+function punFwd(R) {
+  for (let t = 0; t < 20; t++) {
+    const c = R.pick(COSTUMES.filter(x => !x.domDisease)), L = c.L, gs = G3(L);
+    let g1 = R.pick(gs), g2 = R.pick(gs);
+    let how1 = R.weighted([['geno', 3], ['words', 2], ['breeding', c.human ? 0 : 2], ['carrier', c.recDisease ? 4 : 0]]), how2 = how1;
+    if (how1 === 'carrier') { if (g1 === gs[2] && g2 === gs[2]) continue; }
+    if (how1 === 'breeding' && (g1 === gs[1]) === (g2 === gs[1]) && R.chance(0.5)) g1 = gs[0];
+    const ask = R.pick(['pctDom', 'pctRec', 'fracRec', 'geno', 'pheno', 'geno']);
+    const args = { cost: c.id, g1, g2, how1, how2, ask };
+    const D = PUN_DERIVE['pun-fwd'](args); if (!D.ok) continue;
+    const who = c.human ? ['man', 'woman'] : c.dad ? [c.dad, c.mum] : ['plant', 'plant'];
+    const off = c.human ? 'children' : c.many;
+    const askT = { pctDom: `What percentage of their ${off} will ${will(c, c.dom)}?`, pctRec: `What percentage of their ${off} will ${will(c, c.rec)}?`,
+      fracRec: `What fraction of their ${off} would you expect to ${will(c, c.rec)}?`, fracDom: `What fraction of their ${off} would you expect to ${will(c, c.dom)}?`,
+      geno: `What is the genotypic ratio of the ${off}?`, pheno: `What is the phenotypic ratio of the ${off}?` }[ask];
+    const intro = c.disease ? `${c.disease} is ${c.recDisease ? 'autosomal recessive' : 'autosomal dominant'} (${L} = no ${c.disease}, ${L.toLowerCase()} = ${c.disease}).` : `In ${c.human ? 'people' : SPECIES[c.id]}, ${c.dom} (${L}) is dominant over ${c.rec} (${L.toLowerCase()}).`;
+    const stem = c.human ? `${intro} ${cap(parentWords(c, g1, how1, who[0]))} and ${parentWords(c, g2, how2, who[1])} have ${off}. ${askT}`
+      : `${intro} ${cap(parentWords(c, g1, how1, who[0]))} is crossed with ${parentWords(c, g2, how2, who[1])}. ${askT.replace('their ' + off, 'the offspring')}`;
+    let fill;
+    if (ask === 'geno' || ask === 'pheno') {
+      const all = []; for (const x of gs) for (const y of gs) { const P = autoP(c, x, y); all.push(ask === 'geno' ? genoRatio(P, L) : phenRatio(P, c)); }
+      fill = R.shuffle([...new Set(all)]).map(t => ({ t, slip: null }));
+    } else fill = R.shuffle(QUARTERS).map(v => ({ t: ask.startsWith('frac') ? FRAC[v] : pct(v), slip: null }));
+    const q = mcq(R, { t: D.key }, D.tagged.concat(fill), 4);
+    if (q.opts.length < 4) continue;
+    return { type: 'pun-fwd', skill: 'crosses', args, stem, opts: q.opts, key: q.key, square: { fam: 'auto', f: g1, m: g2 },
+      fb: { rule: [RULE.pun], evidence: [`${g1} × ${g2}: the square gives ${genoRatio(autoP(c, g1, g2), L)}, so ${phenRatio(autoP(c, g1, g2), c)}.`], glow: [], note: '' } };
+  }
+  return null;
+}
+/* her P1 / F1 / F2 items (hornless cattle, tomatoes) */
+function punGen(R) {
+  const c = R.pick([costume('cattle'), costume('tomato'), costume('pea')]), L = c.L, l = L.toLowerCase();
+  const step = R.pick(['F1', 'F2', 'back']);
+  const who = c.dad ? [c.dad, c.mum] : ['plant', 'plant'];
+  const [g1, g2] = step === 'F1' ? [L + L, l + l] : step === 'F2' ? [L + l, L + l] : [L + l, l + l];
+  const askRec = R.chance(0.5);
+  const args = { cost: c.id, g1, g2, how1: 'geno', how2: 'geno', ask: askRec ? 'pctRec' : 'pctDom' };
+  const D = PUN_DERIVE['pun-fwd'](args);
+  const setup = `A true-breeding ${c.dom} ${who[0]} (P1) is crossed with a ${c.rec} ${who[1]}. ${cap(c.dom)} (${L}) is dominant.`;
+  const ph = will(c, askRec ? c.rec : c.dom);
+  const stepT = step === 'F1' ? `What percentage of the F1 ${c.many} will ${ph}?`
+    : step === 'F2' ? `Two of the F1 are crossed together. What percentage of their offspring (the F2) will ${ph}?`
+    : `An F1 ${c.one} is crossed with a ${c.rec} ${c.one}. What percentage of the offspring will ${ph}?`;
+  const q = mcq(R, { t: D.key }, D.tagged.concat(R.shuffle(QUARTERS).map(v => ({ t: pct(v), slip: null }))), 4);
+  return { type: 'pun-fwd', skill: 'crosses', args, stem: setup + ' ' + stepT, opts: q.opts, key: q.key, square: { fam: 'auto', f: g1, m: g2 },
+    fb: { rule: [RULE.pun], evidence: [`P1 is ${L}${L} × ${l}${l}, so every F1 is ${L}${l}. ${step === 'F1' ? `All F1 are ${L}${l} and ${c.dom}.` : step === 'F2' ? `${L}${l} × ${L}${l} gives 25% ${L}${L}, 50% ${L}${l}, 25% ${l}${l}: 75% ${c.dom}, 25% ${c.rec}.` : `${L}${l} × ${l}${l} gives 50% ${L}${l} and 50% ${l}${l}.`}`], glow: [], note: '' } };
+}
+function punBack(R) {
+  const kind = R.pick(['relRec', 'relRec', 'selfRec', 'litter', 'bothDomKidRec']);
+  const c = R.pick(COSTUMES.filter(x => !x.disease && (kind !== 'litter' || !x.human)));
+  const L = c.L, l = L.toLowerCase(), args = { cost: c.id, kind };
+  const D = PUN_DERIVE['pun-back'](args);
+  let stem, ev, opts;
+  const w = c.human ? R.pick(['man', 'woman']) : (c.dad ? R.pick([c.dad, c.mum]) : c.one);
+  const rel = c.human ? R.pick(['mother', 'father']) : R.pick(['mother', 'father']);
+  if (kind === 'relRec') { stem = `${cap(c.dom)} (${L}) is dominant over ${c.rec} (${l}). A ${w} with ${c.dom}, whose ${rel} had ${c.rec}. What is the ${w}'s genotype?`; opts = [L + l, L + L, l + l, L + '?'];
+    ev = `The ${rel} was ${l}${l}, so could only pass on ${l}. The ${w} shows ${c.dom}, so also has an ${L}: ${L}${l}.`; }
+  if (kind === 'selfRec') { stem = `${cap(c.dom)} (${L}) is dominant over ${c.rec} (${l}). A ${w} whose parents both had ${c.dom}, but who has ${c.rec}. What is the ${w}'s genotype?`; opts = [l + l, L + l, L + L, L + '?'];
+    ev = `${cap(c.rec)} only shows when there is no dominant allele: ${l}${l}. The parents don't change that (they must both be ${L}${l}).`; }
+  if (kind === 'litter') { stem = `${cap(c.dom)} (${L}) is dominant. One parent has ${c.rec}. Their litter is 2 with ${c.dom} and 3 with ${c.rec}. So the second parent must be…`; opts = ['heterozygous', 'homozygous dominant', 'homozygous recessive', 'Not enough information given'];
+    ev = `The ${c.rec} young are ${l}${l} and got an ${l} from each parent, so the parent with ${c.dom} has an ${l} too: heterozygous (${L}${l}).`; }
+  if (kind === 'bothDomKidRec') { stem = `Both parents have ${c.dom} (dominant, ${L}), but one of their children has ${c.rec}. What are the parents' genotypes?`; opts = ['both heterozygous', 'both homozygous dominant', 'one heterozygous, one homozygous dominant', 'both homozygous recessive'];
+    ev = `The child is ${l}${l}: one ${l} from EACH parent. Both parents show ${c.dom}, so both are ${L}${l}. Each next child has a 25% chance of ${c.rec}.`; }
+  const q = mcq(R, { t: D.key }, D.tagged.concat(opts.map(t => ({ t, slip: null }))), 4, sameGeno);
+  return { type: 'pun-back', skill: 'crosses', args, stem, opts: q.opts, key: q.key, fb: { rule: ['Work backwards from the recessive relative: someone with the recessive trait is homozygous recessive and can only pass on the recessive allele.'], evidence: [ev], glow: [], note: '' } };
+}
+function punTest(R) {
+  const ask = R.pick(['which', 'which', 'pct']);
+  const g = R.pick(['DD', 'Dd']);
+  const args = { ask, g };
+  const D = PUN_DERIVE['pun-test'](args);
+  const setup = 'Hearing (D) is dominant over deafness (d). A hearing male dog could be DD or Dd, so he is crossed with a deaf female (dd): a test cross.';
+  const stem = ask === 'which' ? `${setup} One of the puppies is deaf. What is the male's genotype?` : `${setup} If the male is ${g}, what percentage of the puppies would be deaf?`;
+  const fill = ask === 'which' ? ['Dd', 'DD', 'dd', 'Not enough information given'] : QUARTERS.map(pct);
+  const q = mcq(R, { t: D.key }, D.tagged.concat(fill.map(t => ({ t, slip: null }))), 4, sameGeno);
+  return { type: 'pun-test', skill: 'crosses', args, stem, opts: q.opts, key: q.key, square: ask === 'which' ? { fam: 'auto', f: 'Dd', m: 'dd' } : { fam: 'auto', f: g, m: 'dd' },
+    fb: { rule: [RULE.pun], evidence: [ask === 'which' ? 'A deaf puppy is dd and got a d from EACH parent, so the hearing male must carry d: Dd. (If he were DD, every puppy would hear.)' : `${g} × dd gives ${g === 'DD' ? '100% Dd: every puppy hears' : '50% Dd and 50% dd: half the puppies are deaf'}.`], glow: [], note: 'Her 16-mark test-cross question works exactly this way.' } };
+}
+const XL_COST = [{ L: 'B', name: 'colour blindness', adj: 'colour-blind', normal: 'normal colour vision' }, { L: 'H', name: 'haemophilia', adj: 'haemophiliac', normal: 'normal clotting' }];
+function punXL(R) {
+  for (let t = 0; t < 20; t++) {
+    const C = R.pick(XL_COST), fd = R.pick([0, 1]), md = R.pick([0, 1, 1, 2]);
+    if (!fd && !md) continue;
+    const ask = R.pick(['child', 'son', 'son', 'affson', 'dau', 'cardau']);
+    const args = { L: C.L, fd, md, ask };
+    const D = PUN_DERIVE['pun-xl'](args); if (!D.ok) continue;
+    if (ask === 'cardau' && md === 2 && fd) continue;
+    const man = fd ? `A ${C.adj} man` : `A man with ${C.normal}`;
+    const wom = md === 2 ? `a ${C.adj} woman` : md === 1 ? 'a woman who is a carrier' : `a woman with ${C.normal} and no family history`;
+    const askT = { child: `What is the chance that their next child is ${C.adj}?`, son: `If they have a son, what is the chance that he is ${C.adj}?`,
+      affson: `What is the chance that their next child is a ${C.adj} son?`, dau: `If they have a daughter, what is the chance that she is ${C.adj}?`,
+      cardau: `If they have a daughter, what is the chance that she is a carrier?` }[ask];
+    const stem = `${cap(C.name)} is X-linked recessive. ${man} and ${wom} have children. ${askT}`;
+    const q = mcq(R, { t: D.key }, D.tagged.concat(R.shuffle(QUARTERS).map(v => ({ t: pct(v), slip: null }))), 4);
+    const P = punnett('xl', D.fg, D.mg);
+    return { type: 'pun-xl', skill: 'sexlinked', args, stem, opts: q.opts, key: q.key, square: { fam: 'xl', f: D.fg, m: D.mg },
+      fb: { rule: ["'A son' means you only count the boy boxes. Males need ONE copy to be affected (their one X), females need TWO.", "A son gets Dad's Y, never his X; his X comes from Mum."],
+        evidence: [`${D.fg} × ${D.mg}: sons ${pct(P.pSonAff)} affected, daughters ${pct(P.pDauAff)} affected; ${pct(P.pAffSon)} of all children are affected sons.`], glow: [], note: '' } };
+  }
+  return null;
+}
+function punABO(R) {
+  const I = R.chance(0.5);
+  const N = I ? { A: 'Iᴬ', B: 'Iᴮ', O: 'i' } : { A: 'A', B: 'B', O: 'O' };
+  const G6 = ['AA', 'AO', 'BB', 'BO', 'AB', 'OO'].map(g => g.split('').map(x => N[x]).join(''));
+  const kind = R.weighted([['pct', 4], ['possible', 3], ['back', 2]]);
+  if (kind === 'back') {
+    const args = { g1: G6[5], g2: G6[0], ask: 'back', key: G6[0], wrong: G6[1] };
+    const D = PUN_DERIVE['pun-abo'](args);
+    const q = mcq(R, { t: D.key }, D.tagged.concat([G6[4], G6[5], G6[2]].map(t => ({ t, slip: null }))), 4);
+    return { type: 'pun-abo', skill: 'abo', args, stem: `A man with type O blood (${G6[5]}) has children with a woman. All of their children are ${N.A}${N.O}. What is the woman's genotype most likely to be?`,
+      opts: q.opts, key: q.key, fb: { rule: ['A and B are codominant, and both are dominant over O.'], evidence: [`Every child got ${N.O} from Dad, so the ${N.A} came from Mum every time. If she were ${G6[1]}, about half would be ${G6[5]}.`], glow: [], note: '' } };
+  }
+  const g1 = R.pick(G6), g2 = R.pick(G6);
+  const type = R.pick(['A', 'B', 'AB', 'O']);
+  const args = { g1, g2, ask: kind, type };
+  const D = PUN_DERIVE['pun-abo'](args);
+  const P = punnett('abo', g1, g2);
+  const stem = kind === 'pct' ? `Blood group: ${an(g1)} parent and ${an(g2)} parent. What percentage of their children would have type ${type} blood?` : `Blood group: ${an(g1)} parent and ${an(g2)} parent. Which blood types could their children have?`;
+  const fill = kind === 'pct' ? R.shuffle(QUARTERS).map(v => ({ t: pct(v), slip: null })) : R.shuffle([...new Set(G6.flatMap(x => G6.map(y => aboList(Object.keys(punnett('abo', x, y).phen)))))]).map(t => ({ t, slip: null }));
+  const q = mcq(R, { t: D.key }, D.tagged.concat(fill), 4);
+  return { type: 'pun-abo', skill: 'abo', args, stem, opts: q.opts, key: q.key, square: { fam: 'abo', f: g1, m: g2 },
+    fb: { rule: ['A and B are codominant (both show in AB), and both are dominant over O. An O child needs an O allele from each parent.'], evidence: [`${g1} × ${g2} gives ${Object.entries(P.phen).map(([k, v]) => pct(v / 4) + ' type ' + k).join(', ')}.`], glow: [], note: '' } };
+}
+function punPat(R) {
+  if (R.chance(0.6)) {
+    const E = R.pick(PAT_EX), args = { kind: 'name', ex: E.id };
+    const D = PUN_DERIVE['pun-pat'](args);
+    const q = mcq(R, { t: D.key }, D.tagged.concat(R.shuffle(PAT_OPTS).map(t => ({ t, slip: null }))), 4);
+    return { type: 'pun-pat', skill: 'patterns', args, stem: E.t + (E.id === 'sickle' ? '' : ' This is an example of…'), opts: q.opts, key: q.key,
+      fb: { rule: ['Incomplete dominance = a blend (red × white gives pink). Codominance = both show (AB blood). Polygenic = many genes, each with a small effect, giving continuous variation.'], evidence: [], glow: [], note: E.note || (E.id === 'abo3' ? 'Her true/false trap: multiple alleles is not the same as polygenic.' : '') } };
+  }
+  const [n1, n2, het] = R.pick([['red', 'white', 'pink'], ['curly', 'straight', 'wavy']]);
+  const pairs = [['RR', 'WW'], ['RW', 'RW'], ['RR', 'RW'], ['RW', 'WW']];
+  const [g1, g2] = R.pick(pairs), want = R.pick([n1, n2, het]);
+  const args = { kind: 'cross', g1, g2, n1, n2, het, want };
+  const D = PUN_DERIVE['pun-pat'](args);
+  const nm = g => g === 'RR' ? n1 : g === 'WW' ? n2 : het;
+  const q = mcq(R, { t: D.key }, R.shuffle(QUARTERS).map(v => ({ t: pct(v), slip: null })), 4);
+  return { type: 'pun-pat', skill: 'patterns', args, stem: `Incomplete dominance: ${n1} (RR) × ${n2} (WW) gives ${het} (RW). A ${nm(g1)} parent is crossed with a ${nm(g2)} parent. What percentage of the offspring are ${want}?`,
+    opts: q.opts, key: q.key, square: { fam: 'inc', f: g1, m: g2 }, fb: { rule: ['Incomplete dominance: the heterozygote is an in-between (a blend), so every genotype has its own look.'], evidence: [`${g1} × ${g2}: ${D.key} are ${want}.`], glow: [], note: '' } };
+}
+function punIndep(R) {
+  const c = R.pick(COSTUMES.filter(x => x.recDisease)), L = c.N || c.L;
+  const had = R.chance(0.6), nth = R.pick(['second', 'third', 'fourth']);
+  const args = { g1: 'Dd', g2: 'Dd', had };
+  const D = PUN_DERIVE['pun-indep'](args);
+  const stem = had ? `Two carriers of ${c.disease} have already had one child with ${c.disease}. What is the chance that their next child has ${c.disease}?` : `Two carriers of ${c.disease} are expecting their ${nth} child. What is the chance that this child has ${c.disease}?`;
+  const q = mcq(R, { t: D.key }, D.tagged.concat(['50%', '75%', '0%'].map(t => ({ t, slip: null }))), 4);
+  return { type: 'pun-indep', skill: 'crosses', args, stem, opts: q.opts, key: q.key, square: { fam: 'auto', f: c.L + c.L.toLowerCase(), m: c.L + c.L.toLowerCase() },
+    fb: { rule: [SLIPS.W6.fix], evidence: ['Carrier × carrier is a fresh 25% for every pregnancy. Earlier children change nothing: the square is drawn again each time.'], glow: [], note: '' } };
+}
+function punRead(R) {
+  const c = R.pick(COSTUMES.filter(x => !x.disease)), gs = G3(c.L);
+  const g1 = R.pick(gs.slice(0, 2)), g2 = R.pick(gs);
+  const ask = R.pick(['geno', 'pheno', 'het', 'terms']);
+  const args = { cost: c.id, g1, g2, ask };
+  const D = PUN_DERIVE['pun-read'](args);
+  const stem = { geno: 'Read the square: what is the genotypic ratio?', pheno: `Read the square: what is the phenotypic ratio (${c.dom} is dominant)?`, het: 'Read the square: what percentage of the offspring are heterozygous?',
+    terms: 'In a Punnett square, the letters outside the boxes are the…' }[ask];
+  let fill;
+  if (ask === 'geno' || ask === 'pheno') { const all = []; for (const x of gs) for (const y of gs) { const P = autoP(c, x, y); all.push(ask === 'geno' ? genoRatio(P, c.L) : phenRatio(P, c)); } fill = R.shuffle([...new Set(all)]); }
+  else if (ask === 'het') fill = R.shuffle(QUARTERS.map(pct));
+  else fill = ['alleles, and inside are the genes', 'phenotypes, and inside are the genotypes', 'zygotes, and inside are the gametes'];
+  const q = mcq(R, { t: D.key }, D.tagged.concat(fill.map(t => ({ t, slip: null }))), 4);
+  return { type: 'pun-read', skill: 'crosses', args, stem, opts: q.opts, key: q.key, square: { fam: 'auto', f: g1, m: g2 }, showSquare: true,
+    fb: { rule: ['Genotype = the letters (RR, Rr, rr). Phenotype = what you see. The letters outside are gametes (one allele each); inside are zygotes (one from the top, one from the side).'], evidence: [], glow: [], note: '' } };
+}
+function punSpot(R) {
+  const L = R.pick(LETTERS), gs = G3(L);
+  let g1, g2; do { g1 = R.pick(gs); g2 = R.pick(gs); } while (g1 === gs[0] && g2 === gs[0] || g1 === gs[2] && g2 === gs[2]);
+  const P = punnett('auto', g1, g2), right = { top: P.top, side: P.side, cells: P.cells };
+  const wrongs = [];
+  // a gamete that is a whole genotype's worth (both letters of the parent) in the box
+  wrongs.push({ top: P.top, side: P.side, cells: P.cells.map((r, i) => r.map((cc, j) => joinG('auto', P.top[j], P.top[j === 0 ? 1 : 0]))), why: 'the boxes took both letters from the top parent' });
+  // a parent's gametes miscopied as homozygous
+  const t2 = [P.top[0], P.top[0]];
+  wrongs.push({ top: t2, side: P.side, cells: P.side.map(s => t2.map(t => joinG('auto', t, s))), why: 'the top parent\'s gametes were copied wrong' });
+  // two boxes swapped
+  const sw = P.cells.map(r => r.slice()); [sw[0][0], sw[1][1]] = [sw[1][1], sw[0][0]];
+  if (JSON.stringify(sw) !== JSON.stringify(P.cells)) wrongs.push({ top: P.top, side: P.side, cells: sw, why: 'two boxes do not match their row and column' });
+  const lower = P.cells.map(r => r.map(c => c.toLowerCase() === c ? c : c.toLowerCase())); wrongs.push({ top: P.top, side: P.side, cells: lower, why: 'the dominant letters were lost' });
+  const bad = wrongs.filter(w => JSON.stringify(w.cells) !== JSON.stringify(P.cells) || w.top.join() !== P.top.join());
+  const uniq = []; bad.forEach(w => { if (!uniq.some(u => JSON.stringify(u) === JSON.stringify(w))) uniq.push(w); });
+  if (uniq.length < 3) return punSpot(R);
+  const squares = R.shuffle([right].concat(uniq.slice(0, 3)));
+  const args = { g1, g2, squares: squares.map(s => ({ top: s.top, side: s.side, cells: s.cells })) };
+  const D = PUN_DERIVE['pun-spot'](args); if (!D.ok) return punSpot(R);
+  const opts = ['I', 'II', 'III', 'IV'].map(n => ({ t: 'Square ' + n, slip: null }));
+  return { type: 'pun-spot', skill: 'crosses', args, squares, stem: `${cap(an(g1))} parent (across the top) is crossed with ${an(g2)} parent (down the side). Which of squares I to IV is correct?`, opts, key: opts.findIndex(o => o.t === D.key),
+    fb: { rule: ['Each box takes ONE letter from the top and ONE from the side. A gamete carries one allele: Bb makes B and b.'], evidence: squares.map((s, i) => s === right ? null : `Square ${['I', 'II', 'III', 'IV'][i]}: ${s.why}.`).filter(Boolean), glow: [], note: '' } };
+}
+/* build the square (§5.4.1): tap the gamete chips onto the top and side, then fill each box */
+function punBuild(R) {
+  const fam = R.weighted([['auto', 4], ['xl', 1]]);
+  if (fam === 'xl') {
+    const C = R.pick(XL_COST), fd = R.pick([0, 1]), md = R.pick([0, 1, 2]);
+    const fg = 'X' + (fd ? SUPL[C.L.toLowerCase()] : SUPU[C.L]) + 'Y', mg = 'X' + (md === 2 ? SUPL[C.L.toLowerCase()] : SUPU[C.L]) + 'X' + (md >= 1 ? SUPL[C.L.toLowerCase()] : SUPU[C.L]);
+    return buildQ(fam, fg, mg, `${cap(C.name)} is X-linked recessive. Build the Punnett square: father ${fg} across the top, mother ${mg} down the side.`);
+  }
+  const c = R.pick(COSTUMES.filter(x => !x.disease)), gs = G3(c.L);
+  let g1, g2; do { g1 = R.pick(gs); g2 = R.pick(gs); } while (g1 !== gs[1] && g2 !== gs[1]);   // at least one heterozygous parent, so the square teaches something
+  return buildQ('auto', g1, g2, `Build the Punnett square: ${g1} across the top, ${g2} down the side. (${cap(c.dom)}, ${c.L}, is dominant.)`);
+}
+function buildQ(fam, g1, g2, stem) {
+  const P = punnett(fam, g1, g2);
+  const chips = [...new Set(P.top.concat(P.side))];
+  const cellOpts = [...new Set(P.top.flatMap(t => P.side.map(s => joinG(fam, t, s))).concat(chips.flatMap(a => chips.map(b => fam === 'xl' && a !== 'Y' && b !== 'Y' || fam !== 'xl' ? joinG(fam, a, b) : null)).filter(Boolean)))].filter(x => !/YY/.test(x));
+  return { type: 'pun-build', skill: fam === 'xl' ? 'sexlinked' : 'crosses', args: { fam, g1, g2 }, stem, fam, P, chips, cellOpts,
+    fb: { rule: ['Each box takes ONE letter from the top and ONE from the side. A gamete carries one allele.'], evidence: [], glow: [], note: '' } };
+}
+DERIVE['pun-build'] = (ch, a) => { const P = punnett(a.fam, a.g1, a.g2); return { ok: true, P, key: JSON.stringify(P.cells) }; };
+const PUN_TYPES = {
+  'pun-build': { label: 'Build the square', make: punBuild, modes: [null] },
+  'pun-read': { label: 'Read the square', make: punRead, modes: [null] },
+  'pun-fwd': { label: 'Word problems', make: (R) => R.chance(0.3) ? punGen(R) : punFwd(R), modes: [null] },
+  'pun-back': { label: 'Working backwards', make: punBack, modes: [null] },
+  'pun-test': { label: 'Test cross', make: punTest, modes: [null] },
+  'pun-spot': { label: 'Spot the right square', make: punSpot, modes: [null] },
+  'pun-xl': { label: 'X-linked crosses', make: punXL, modes: [null] },
+  'pun-abo': { label: 'ABO blood groups', make: punABO, modes: [null] },
+  'pun-pat': { label: 'Incomplete dominance, codominance, polygenic', make: punPat, modes: [null] },
+  'pun-indep': { label: 'Every child is a fresh chance', make: punIndep, modes: [null] }
+};
+GEN.PUN_TYPES = PUN_TYPES;
+
 /* make(type, R, opts): one question, or null if this mode can't give that type */
 GEN.make = function (type, R, o) {
   const T = PED_TYPES[type] || (GEN.PUN_TYPES && GEN.PUN_TYPES[type]) || (GEN.KAR_TYPES && GEN.KAR_TYPES[type]);

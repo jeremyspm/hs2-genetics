@@ -16,20 +16,20 @@ const bad = m => { fails++; if (failLines.length < 40) failLines.push(m); };
 for (const [w, h] of [[375, 812], [1280, 800]]) {
   const page = await browser.newPage({ viewport: { width: w, height: h } });
   const errs = []; page.on('pageerror', e => errs.push(e.message)); page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
-  await page.goto(BASE + '#ped', { waitUntil: 'networkidle' });
-  const drills = await page.$$eval('[data-drill]', bs => bs.map(b => b.dataset.drill));
-  for (const d of drills) {
+  const drills = [];
+  for (const scr of ['ped', 'pun']) { await page.goto(BASE + '#' + scr, { waitUntil: 'networkidle' }); (await page.$$eval('[data-drill]', bs => bs.map(b => b.dataset.drill))).forEach(d => drills.push([scr, d])); }
+  for (const [scr, d] of drills) {
     if (ONLY && d !== ONLY) continue;
     const t0 = Date.now();
-    await page.goto(BASE + '#ped', { waitUntil: 'load' });
+    await page.goto(BASE + '#' + scr, { waitUntil: 'load' });
     await page.click(`[data-drill="${d}"]`);
     for (let k = 0; k < N; k++) {
       // a round is 10; start another from the done screen
       if (await page.$('#again')) await page.click('#again');
-      const info = await page.evaluate(() => { const it = SIT.items[SIT.i]; const q = it.q; return { type: q.type, n: q.opts ? q.opts.length : 0, blanks: q.blanks ? q.blanks.length : 0, people: q.people ? q.people.map(p => p.id) : [] }; });
+      const info = await page.evaluate(() => { const it = SIT.items[SIT.i]; const q = it.q; return { type: q.type, n: q.opts ? q.opts.length : 0, blanks: q.blanks ? q.blanks.length : 0, people: q.people ? q.people.map(p => p.id) : [], build: q.type === 'pun-build' }; });
       // every person on every chart: drawn, labelled, on screen horizontally
       const sym = await page.evaluate(() => {
-        const it = SIT.items[SIT.i], chs = it.q.charts || [it.q.chart];
+        const it = SIT.items[SIT.i], chs = it.q.charts || (it.q.chart ? [it.q.chart] : []);
         const want = chs.reduce((a, c) => a + c.people.filter(p => !p.hidden).length, 0);
         const gs = [...document.querySelectorAll('.qchart svg.ped g.ps')];
         const vis = gs.filter(g => { const r = g.getBoundingClientRect(); return r.width > 8 && r.height > 8 && g.getAttribute('aria-label'); });
@@ -53,6 +53,15 @@ for (const [w, h] of [[375, 812], [1280, 800]]) {
           const os = await page.$$('.ddo'); await os[Math.floor(Math.random() * os.length)].click();
         }
         await page.click('#ckCloze');
+      } else if (info.build) {
+        const right = Math.random() < 0.5;
+        if (right) await page.evaluate(() => { const it = SIT.items[SIT.i], P = it.q.P; it.st.top = P.top.slice(); it.st.side = P.side.slice(); it.st.cells = P.cells.map(r => r.slice()); paintSit(); });
+        else {
+          for (const k of ['t0', 't1', 's0', 's1']) { const cs = await page.$$('[data-chip]'); await cs[Math.floor(Math.random() * cs.length)].click(); await page.click('[data-slot="' + k + '"]'); }
+          for (const c of ['0,0', '0,1', '1,0', '1,1']) { const n = 1 + Math.floor(Math.random() * 3); for (let j = 0; j < n; j++) await page.click('[data-cell="' + c + '"]'); }
+        }
+        await page.click('#ckBuild');
+        if (right && !(await page.evaluate(() => SIT.items[SIT.i].st.ok))) bad(w + 'px pun-build: the right square was marked wrong');
       } else if (info.people.length) {
         const n = Math.floor(Math.random() * info.people.length * 2);
         for (let j = 0; j < n; j++) { const ps = await page.$$('#cbox .ps'); await ps[Math.floor(Math.random() * ps.length)].click(); }

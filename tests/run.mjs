@@ -230,6 +230,32 @@ section('3 generated questions', () => {
       stats.push(`${type}/${mode} ${made} (${(ms / Math.max(1, tries)).toFixed(1)} ms)`);
     }
   }
+  // the Punnett types: no chart, the args alone re-derive the key
+  for (const [type] of Object.entries(G.PUN_TYPES)) {
+    const slots = {}; let made = 0;
+    for (let k = 0; k < N; k++) {
+      const q = G.make(type, R, {}); if (!q) continue; made++;
+      const tag = `${type} #${made}`;
+      const D = G.DERIVE[type](null, JSON.parse(JSON.stringify(q.args)));
+      if (!ok(D.ok, `${tag}: re-derive says not askable`)) continue;
+      if (type === 'pun-build') {
+        ok(D.key === JSON.stringify(q.P.cells), `${tag}: square`);
+        ok(q.P.cells.flat().every(c => q.cellOpts.includes(c)), `${tag}: a right box is missing from the choices`);
+        continue;
+      }
+      const texts = q.opts.map(o => o.t);
+      ok(new Set(texts).size === texts.length, `${tag}: duplicate options ${texts}`);
+      ok(D.correct(q.opts[q.key].t), `${tag}: keyed "${q.opts[q.key].t}" but derive says ${D.key}`);
+      ok(texts.filter(t => D.correct(t)).length === 1, `${tag}: ${texts.filter(t => D.correct(t)).length} right options in ${texts}`);
+      for (const o of q.opts) if (o.slip) ok(D.tagged.some(x => x.t === o.t && x.slip === o.slip), `${tag}: slip ${o.slip} on "${o.t}" does not re-derive`);
+      ok(texts.every(t => !/^\d+%$/.test(t) || /^(0|25|50|75|100)%$/.test(t)), `${tag}: a chance outside 0/25/50/75/100: ${texts}`);
+      slots[q.key] = (slots[q.key] || 0) + 1;
+    }
+    ok(made >= N * 0.9, `${type}: only ${made} of ${N}`);
+    const n = Object.values(slots).reduce((a, b) => a + b, 0), k = Math.max(0, ...Object.keys(slots).map(Number)) + 1;
+    if (n && k > 1) ok(Math.min(...Array.from({ length: k }, (_, i) => slots[i] || 0)) >= (QUICK ? 0.3 : 0.5) * n / k, `${type}: key position not spread: ${JSON.stringify(slots)}`);
+    stats.push(`${type} ${made}`);
+  }
   console.log('      made: ' + stats.join(' · '));
 });
 
