@@ -372,7 +372,19 @@ iii6 M 3 8.3 - ii6+ii5  6`,
       { opts: ['RR= homozygous dominant', 'rr = homozygous recessive', 'Rr = heterozygous'], key: 'Rr = heterozygous', check: { t: 'geno', who: 'i2', L: 'R', prefix: true } },
       { opts: ['RR', 'rr', 'Rr'], key: 'Rr', check: { t: 'geno', who: 'ii3', L: 'R' } }] },
   { src: 'revision-59', q: 'Mode of inheritance? How do you know? Which coloured shape is the bb?', written: ['Dominant.', 'How you know: no evidence of skips.', 'The white ones are bb.'],
-    check: { t: 'bbShape', key: 'white' } }] },
+    check: { t: 'bbShape', key: 'white' } },
+  /* her "Freckles corrected" deck (12 Oct 2026): the SAME family, worked through as freckles (F dominant). Her slide 6 writes a
+     genotype on every person and her reasoning for II-5 ("some children from cross with II-6 (ff) … not III-6 … II-5 must be
+     heterozygous (Ff)"); her pattern line: "Dominant = every generation · Autosomal = males & females affected equally".
+     The questions are the tool's framing of HER answers; the engine must reach each on its own. */
+  { src: 'freckles', q: 'Freckles (her worked example; F = freckles). What is the pattern of inheritance?',
+    opts: ['Recessive autosomal', 'Dominant autosomal', 'Recessive sex-linked', 'Dominant sex-linked'], key: 'Dominant autosomal', check: { t: 'mode' } },
+  { src: 'freckles', q: 'Freckles (her worked example). What is the genotype of II-5, the affected woman married to II-6?',
+    opts: ['FF', 'Ff', 'ff'], key: 'Ff', check: { t: 'geno', who: 'ii5', L: 'F' } },
+  { src: 'freckles', q: 'Freckles (her worked example). What is the genotype of I-2, the affected grandmother?',
+    opts: ['FF', 'Ff', 'ff'], key: 'Ff', check: { t: 'geno', who: 'i2', L: 'F' } },
+  { src: 'freckles', q: 'Freckles (her worked example). What is the genotype of III-3?',
+    opts: ['FF', 'Ff', 'ff'], key: 'Ff', check: { t: 'geno', who: 'iii3', L: 'F' } }] },
 
 { id: 'c5g', t: 'Five generations, cousins marry', imgs: ['HS2DATA-dec03e5277db4bb9.png', 'HS2DATA-a9b3768ed72a5b87.png'], numbering: 'roman', fill: 'blue', people: `
 i1   M 1 2.7 - -         1

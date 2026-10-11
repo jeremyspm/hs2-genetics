@@ -325,7 +325,7 @@ function herView(id) {
   const redraws = specs.map(s => `<figure class="fig"><div class="chartbox">${GEN.svg(HC[s.id], { aria: 'Redrawn: ' + s.t })}</div><figcaption><span class="tagl tool">redrawn</span>from data${s.simplified ? ' · simplified: her cartoon people become squares and circles' : ''}</figcaption></figure>`).join('');
   const qs = specs.flatMap(s => s.qs.map(q => ({ s, q })));
   const qHTML = qs.map(({ s, q }) => {
-    const src = q.bank ? `quiz ${q.quiz} · ${q.bank}` : q.src === 'revision-59' ? 'her exam revision deck, slide 59' : q.src === 'revision-79' ? 'her exam revision deck, slide 79' : '';
+    const src = q.bank ? `quiz ${q.quiz} · ${q.bank}` : q.src === 'revision-59' ? 'her exam revision deck, slide 59' : q.src === 'revision-79' ? 'her exam revision deck, slide 79' : q.src === 'freckles' ? 'her Freckles worked example (Freckles corrected deck, slide 6)' : '';
     let body = '';
     const checks = [];
     if (q.blanks) {
@@ -347,7 +347,7 @@ function herView(id) {
       if (k.c.t === 'fixed') return engLine(true, `${lab}Her rule, taught as a fact: ${esc(k.c.why)}`);
       return engLine(good, `${lab}${good ? 'The engine reaches her key on its own' : 'The engine does not reach her key'}: <b>${esc(r.got ?? 'no single answer')}</b>${r.why ? ` <span class="meta">(${esc(r.why)})</span>` : ''}`);
     }).join('');
-    return `<div class="herq"><div class="src"><span class="tagl">her question</span>${esc(src)}</div><div class="hq">${esc(q.q)}</div>${body}${eng}${q.note ? `<div class="note">${esc(q.note)}</div>` : ''}</div>`;
+    return `<div class="herq"><div class="src"><span class="tagl">${q.src === 'freckles' ? 'her worked answer' : 'her question'}</span>${esc(src)}</div><div class="hq">${esc(q.q)}</div>${body}${eng}${q.note ? `<div class="note">${esc(q.note)}</div>` : ''}</div>`;
   }).join('');
   const title = g.part === 'ab' ? 'Pedigree A and Pedigree B' : g.part === 'rules' ? 'Her dominant and recessive rules figure' : s0.t;
   return `<div class="shead"><button class="btn ghost" data-nav="her">‹ Her charts</button><h2>${esc(title)}</h2></div>
