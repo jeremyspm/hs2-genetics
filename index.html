@@ -304,11 +304,13 @@ function applyTheme() { const t = readTheme(); if (t === 'light') document.docum
 $('#themeBtn').onclick = () => { const to = document.documentElement.dataset.theme === 'light' ? '' : 'light'; try { localStorage.setItem(THEME_KEY, JSON.stringify(to)); } catch (e) {} applyTheme(); };
 window.addEventListener('storage', e => { if (e.key === THEME_KEY) applyTheme(); });
 applyTheme();
-/* Test 3 closes Mon 26 Oct 2026 (his calendar note; her Assessment Overview gives the format) */
-const TEST3 = new Date(2026, 9, 26, 23, 59);
+/* Test 3 closed Mon 26 Oct 2026; since 27 Oct the countdown is to the HS2 final, Wed 4 Nov (cases 14 and 15 are
+   genetics). It said "the final is Thu 5 Nov", which is Pharm's date. */
+const FINAL = new Date(2026, 10, 4);
 function countdownText() {
-  const d = Math.ceil((TEST3 - new Date()) / 864e5);
-  return d > 1 ? `Test 3 closes Mon 26 Oct · ${d} days` : d >= 0 ? 'Test 3 closes today or tomorrow' : 'Test 3 has closed · the final is Thu 5 Nov';
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const d = Math.round((FINAL - t) / 864e5);
+  return d > 1 ? `HS2 final · Wed 4 Nov · ${d} days` : d === 1 ? 'HS2 final is tomorrow' : d === 0 ? 'HS2 final is today' : 'The HS2 final is done';
 }
 function paintCountdown() { $('#countdown').textContent = countdownText(); }
 
@@ -916,7 +918,7 @@ function writeList() {
     ${rowsFor([['story:XLR', '👓', 'Colour blindness in a family (case 14)', "Simon's shape: a grandad, an aunt, a hidden carrier"], ['story:AR', '🫁', 'A whānau with cystic fibrosis (case 15)', 'Who must be a carrier; what would the sisters need?'], ['story:AD', '🧠', "A whānau with Huntington's (case 15)", 'Who is Hh; the cousins passing it on']], log)}
     <label class="toggle"><input type="checkbox" id="drawFirst"${drawFirst() ? ' checked' : ''}> Draw it on paper first, then check it against the chart</label>
     <div class="lsec">The Punnett SAQ</div>
-    <a class="lrow" href="../hs2-test3/#saq"><span class="lic">↗</span><span class="ltx"><b>Her Punnett SAQ is in the Test 3 SAQ Trainer</b><small>The 4-mark Punnett square question, with her model answers</small></span><span class="lch">›</span></a>`;
+    <a class="lrow" href="../hs2-test3/#saq"><span class="lic">↗</span><span class="ltx"><b>Her 4-mark Punnett square question</b><small>With her model answers · it lives in the Test 3 Paper Sim's SAQ trainer</small></span><span class="lch">›</span></a>`;
 }
 /* the phrase-chip write-it */
 function chipsHTML(it) {
